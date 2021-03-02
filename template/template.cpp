@@ -2,6 +2,9 @@
 // IGAD/NHTV/UU - Jacco Bikker - 2006-2020
 
 #include "precomp.h"
+#include "scripts/Imgui/imgui.h"
+#include "scripts/Imgui/imgui_impl_glfw.h"
+#include "scripts/Imgui/imgui_impl_opengl3.h"
 
 #pragma comment( linker, "/subsystem:windows /ENTRY:mainCRTStartup" )
 
@@ -228,6 +231,14 @@ void main()
 	SetWindowPos( GetConsoleWindow(), HWND_TOP, 0, 0, 1280, 800, 0 );
 	glfwShowWindow( window );
 #endif
+	// initialize imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 130");
+
 	// initialize game
 	ReshapeWindowCallback( 0, SCRWIDTH, SCRHEIGHT );
 	Shader* shader = new Shader(
@@ -239,6 +250,12 @@ void main()
 	float deltaTime = 0;
 	while (!glfwWindowShouldClose( window ))
 	{
+		//New frame ImGui
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+
 		static Timer timer;
 		deltaTime = min( 500.0f, 1000.0f * timer.elapsed() );
 		// printf( "%f6.3f\n", deltaTime );
@@ -254,10 +271,21 @@ void main()
 		shader->SetInputTexture( 0, "c", renderTarget );
 		DrawQuad();
 		shader->Unbind();
+
+		//RenderIMGUI
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		glfwSwapBuffers( window );
 		glfwPollEvents();
 		if (!running) break;
 	}
+
+	//Cleanup ImGui
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	// close down
 	glfwDestroyWindow( window );
 	glfwTerminate();

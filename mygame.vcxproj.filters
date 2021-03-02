@@ -8,6 +8,13 @@
       <Filter>template</Filter>
     </ClCompile>
     <ClCompile Include="scripts\Gameplay\mygame.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui_demo.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui_draw.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui_tables.cpp" />
+    <ClCompile Include="scripts\Imgui\imgui_widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\bluenoise.h">
@@ -26,6 +33,14 @@
       <Filter>template</Filter>
     </ClInclude>
     <ClInclude Include="scripts\Gameplay\mygame.h" />
+    <ClInclude Include="scripts\Imgui\imconfig.h" />
+    <ClInclude Include="scripts\Imgui\imgui.h" />
+    <ClInclude Include="scripts\Imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="scripts\Imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="scripts\Imgui\imgui_internal.h" />
+    <ClInclude Include="scripts\Imgui\imstb_rectpack.h" />
+    <ClInclude Include="scripts\Imgui\imstb_textedit.h" />
+    <ClInclude Include="scripts\Imgui\imstb_truetype.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cl\kernels.cl">
