@@ -7,7 +7,7 @@
     <ClCompile Include="template\world.cpp">
       <Filter>template</Filter>
     </ClCompile>
-    <ClCompile Include="mygame.cpp" />
+    <ClCompile Include="scripts\Gameplay\mygame.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\bluenoise.h">
@@ -22,10 +22,10 @@
     <ClInclude Include="template\world.h">
       <Filter>template</Filter>
     </ClInclude>
-    <ClInclude Include="mygame.h" />
     <ClInclude Include="template\worldapi.h">
       <Filter>template</Filter>
     </ClInclude>
+    <ClInclude Include="scripts\Gameplay\mygame.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cl\kernels.cl">
