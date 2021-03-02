@@ -469,24 +469,19 @@ void World::DrawSprite( const uint idx )
 		const SpriteFrame* frame = sprite[idx]->frame[sprite[idx]->currFrame];
 		SpriteFrame* backup = sprite[idx]->backup;
 		const int3& s = backup->size = frame->size;
-		const int3& sh = int3 { s.x / 2, s.y / 2, s.z / 2 };
-		const float r = sprite[idx]->angle;
+		const uint3& c = sprite[idx]->scale;
 		for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
 		{
 			const uint voxel = frame->buffer[i];
 			backup->buffer[i] = Get( pos.x + u, pos.y + v, pos.z + w );
 
-			float s = sin(r);
-			float c = cos(r);
-
-			const int3& tp = int3{u, v, w};
-			const int3& cp = tp - sh;
-
-			const float xn = cp.x * c - cp.y * s;
-			const float zn = cp.x * s + cp.y * c;
-
-			if (voxel != 0) 
-				Set( pos.x + sh.x + xn, pos.y + v, pos.z + sh.z + zn, voxel );
+			if (voxel != 0)
+			{
+				for (uint i = 0, wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++, i++)
+				{
+					Set(pos.x + u * c.x + ui, pos.y + v * c.y + vi, pos.z + w * c.z + +wi, voxel);
+				}
+			}
 		}
 	}
 	// store this location so we can remove the sprite later
@@ -512,59 +507,9 @@ void World::SetSpriteFrame( const uint idx, const uint frame )
 	sprite[idx]->currFrame = frame;
 }
 
-uint Tmpl8::World::ScaleSprite(const uint idx, const uint scale)
+void Tmpl8::World::ScaleSprite(const uint idx, const uint3 scale)
 {
-	// clone frame data, wich contain pointers to shared frame data
-	Sprite* newSprite = new Sprite();
-	if (idx >= sprite.size()) return 0;
-//	newSprite->frame = sprite[idx]->frame;
-	// clone backup frame, which will be unique per instance
-	SpriteFrame* backupFrame = new SpriteFrame();
-	backupFrame->size = sprite[idx]->backup->size * scale;
-	backupFrame->buffer = new uchar[backupFrame->size.x * backupFrame->size.y * backupFrame->size.z];
-	for (int i = 0, w = 0; w < backupFrame->size.z; w++) for (int v = 0; v < backupFrame->size.y; v++) for (int u = 0; u < backupFrame->size.x; u++, i++)
-	{
-		uint id = (w / scale) * sprite[idx]->backup->size.y * sprite[idx]->backup->size.x + (v / scale) * sprite[idx]->backup->size.x + (u / scale);
-		uchar c = sprite[idx]->backup->buffer[id];
-		if (c != 205)
-			printf("Print: IDX: %i, Size(%i, %i, %i), I: %i, ID: %i, Value: %d\n", idx, backupFrame->size.x, backupFrame->size.y, backupFrame->size.z, i, id, c);
-		backupFrame->buffer[i] = sprite[idx]->backup->buffer[id];
-	}
-
-	newSprite->backup = backupFrame;
-
-	SpriteFrame* frame = new SpriteFrame();
-	frame->size = sprite[idx]->frame[0]->size * scale;
-	frame->buffer = new uchar[frame->size.x * frame->size.y * frame->size.z];
-	for (int i = 0, w = 0; w < frame->size.z; w++) for (int v = 0; v < frame->size.y; v++) for (int u = 0; u < frame->size.x; u++, i++)
-	{
-		uint id = (w / scale) * sprite[idx]->backup->size.y * sprite[idx]->backup->size.x + (v / scale) * sprite[idx]->backup->size.x + (u / scale);
-		frame->buffer[i] = sprite[idx]->frame[0]->buffer[id];
-	}
-	newSprite->frame.push_back(frame);
-	sprite.push_back(newSprite);
-	return (uint)sprite.size() - 1;
-
-//	if (idx >= sprite.size()) return;
-//
-//	int3 cs = sprite[idx]->backup->size;
-//	int3 s = cs * scale;
-//
-//	uchar* buffer = new uchar[s.x * s.y * s.z];
-//	for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
-//	{
-//		uint id = (w / scale) * cs.y * cs.x + (v / scale) * cs.x + (u / scale);
-//		buffer[i] = sprite[idx]->backup->buffer[id];
-//	}
-//	delete[] sprite[idx]->backup->buffer;
-//
-//	sprite[idx]->backup->size = s;
-//	sprite[idx]->backup->buffer = buffer;
-}
-
-void Tmpl8::World::RotateSprite(const uint idx, const float rotate)
-{
-	sprite[idx]->angle = rotate;
+	sprite[idx]->scale = scale;
 }
 
 // World::LoadTile

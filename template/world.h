@@ -38,7 +38,7 @@ public:
 	int3 lastPos = make_int3( -9999 );	// location where the backup will be restored to
 	int3 currPos = make_int3( -9999 );	// location where the sprite will be drawn
 	int currFrame = 0;					// frame to draw
-	float angle = 0.0f;
+	uint3 scale = { 1, 1, 1 };
 };
 
 // Tile system overview:
@@ -104,8 +104,7 @@ public:
 	uint SpriteFrameCount( const uint idx );
 	void MoveSpriteTo( const uint idx, const uint x, const uint y, const uint z );
 	void SetSpriteFrame( const uint idx, const uint frame );
-	uint ScaleSprite(const uint idx, const uint scale);
-	void RotateSprite(const uint idx, const float rotate);
+	void ScaleSprite(const uint idx, const uint3 scale);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );
 	void DrawTile( const uint idx, const uint x, const uint y, const uint z );

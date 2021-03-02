@@ -23,16 +23,17 @@ void MyGame::Init()
 	uint cloneCount = 7;
 	uint startPos = 50;
 	GetWorld()->LoadSprite("assets/tile00.vox");
-	GetWorld()->MoveSpriteTo(0, 400, 100, 25);
+	GetWorld()->MoveSpriteTo(0, startPos, 1, 10);
+//	GetWorld()->ScaleSprite(0, {4, 14, 4});
+	uint pos = startPos;
+	for (uint i = 0; i < cloneCount; i++)
+	{
+		pos += (i + 1) * 16;
 
-//	uint pos = startPos;
-//	for (uint i = 0; i < cloneCount; i++)
-//	{
-//		pos += (i + 1) * 16;
-//
-//		GetWorld()->ScaleSprite(0, i + 2);
-//		GetWorld()->MoveSpriteTo(i + 1, pos, 1, 10);
-//	}
+		uint idx = GetWorld()->CloneSprite(0);
+		GetWorld()->ScaleSprite(idx, {i + 2, i + 2, i + 2});
+		GetWorld()->MoveSpriteTo(idx, pos, 1, 10);
+	}
 }
 
 // -----------------------------------------------------------
@@ -45,9 +46,6 @@ void MyGame::Tick( float deltaTime )
 	World* world = GetWorld();
 	world->Print( "Hello World!", 280, 128, 5, 1 );
 	world->SetCameraMatrix( mat4::LookAt( make_float3( 512, 128, 512 ), make_float3( 384, 128, 0 ) ) );
-
-	rot += 0.1f;
-	world->RotateSprite(0, rot);
 
 //	// deer
 //	for (int i = 0; i < 50; i++)
