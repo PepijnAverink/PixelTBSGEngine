@@ -47,14 +47,14 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>template;.;lib\FreeImage\inc;lib\glad\include;lib\glfw\include;lib\OpenCL\inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>template;.;lib\FreeImage\inc;lib\glad\include;lib\glfw\include;lib\OpenCL\inc;lib\Flecs\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <ExceptionHandling>Sync</ExceptionHandling>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>winmm.lib;advapi32.lib;user32.lib;FreeImage.lib;glfw3.lib;gdi32.lib;shell32.lib;OpenCL.lib;OpenGL32.lib</AdditionalDependencies>
+      <AdditionalDependencies>winmm.lib;advapi32.lib;user32.lib;FreeImage.lib;glfw3.lib;gdi32.lib;shell32.lib;OpenCL.lib;OpenGL32.lib;flecs.lib;flecs_static.lib</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <OutputFile>$(TargetPath)</OutputFile>
@@ -64,7 +64,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <Link>
-      <AdditionalLibraryDirectories>lib/FreeImage/lib64;lib/glfw/lib-vc2017;lib/zlib;lib/OpenCL/lib/x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>lib/FreeImage/lib64;lib/glfw/lib-vc2017;lib/zlib;lib/OpenCL/lib/x64;lib/Flecs/lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">

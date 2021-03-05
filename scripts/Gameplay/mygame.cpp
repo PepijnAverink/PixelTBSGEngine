@@ -1,7 +1,42 @@
 #include "precomp.h"
 #include "mygame.h"
+#include "flecs.h"
+#include "bake_config.h"
+#include <iostream>
 
 Game* game = new MyGame();
+
+
+//// Component names ('Position') use PascalCase
+//typedef struct Position {
+//	float x;
+//	float y; // Component members ('y') use snake_case
+//} Position;
+//
+//typedef struct Velocity {
+//	float x;
+//	float y;
+//} Velocity;
+//
+//// System names ('Move') use PascalCase. API types use snake_case_t
+//void Move(ecs_iter_t* it) {
+//	// Functions use snake_case
+//	Position* p = ecs_column(it, Position, 1);
+//	Velocity* v = ecs_column(it, Velocity, 2);
+//
+//	for (int i = 0; i < it->count; i++) {
+//		p[i].x += v[i].x;
+//		p[i].y += v[i].y;
+//	}
+//}
+//
+//void MoveTest(flecs::entity e, Position& p, const Velocity& v) {
+//	p.x += v.x * e.delta_time();
+//	p.y += v.y * e.delta_time();
+//	std::cout << "Entity " << e.name() << " moved!" << std::endl;
+//}
+//
+//flecs::world ecs;
 
 // -----------------------------------------------------------
 // Initialize the application
@@ -9,6 +44,13 @@ Game* game = new MyGame();
 void MyGame::Init()
 {
 	ShowCursor(false);
+	
+
+	//ecs.system<Position, const Velocity>().kind(flecs::OnAdd).each(MoveTest);
+
+	//ecs.entity("MyEntity")
+	//	.set<Position>({ 0, 0 })
+	//	.set<Velocity>({ 1, 1 });
 
 	// init deer flock
 //	GetWorld()->LoadSprite("assets/deer.vox");
@@ -46,6 +88,8 @@ void MyGame::Tick( float deltaTime )
 	World* world = GetWorld();
 	world->Print( "Hello World!", 280, 128, 5, 1 );
 	world->SetCameraMatrix( mat4::LookAt( make_float3( 512, 128, 512 ), make_float3( 384, 128, 0 ) ) );
+
+	//ecs.progress();
 
 //	// deer
 //	for (int i = 0; i < 50; i++)
