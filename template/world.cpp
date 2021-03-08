@@ -517,6 +517,56 @@ void Tmpl8::World::RotateSprite(const uint idx, const float3 rotation)
 	sprite[idx]->rotation = rotation;
 }
 
+uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
+{
+	for (uint32_t i = 0; i < sprite.size(); i++)
+	{
+		int3  p = sprite[i]->currPos;
+		int3  s = sprite[i]->backup->size;
+		uint3 c = sprite[i]->scale;
+
+		float3 min = {(float)p.x, (float)p.y,(float)p.z, };
+		float3 max = { (float)s.x * c.x, (float)s.y * c.y, (float)s.z * c.z, }; max += min;
+
+		float tmin = (min.x - origin.x) / direction.x;
+		float tmax = (max.x - origin.x) / direction.x;
+
+		if (tmin > tmax) swap(tmin, tmax);
+
+		float tymin = (min.y - origin.y) / direction.y;
+		float tymax = (max.y - origin.y) / direction.y;
+
+		if (tymin > tymax) swap(tymin, tymax);
+
+		if ((tmin > tymax) || (tymin > tmax))
+			return false;
+
+		if (tymin > tmin)
+			tmin = tymin;
+
+		if (tymax < tmax)
+			tmax = tymax;
+
+		float tzmin = (min.z - origin.z) / direction.z;
+		float tzmax = (max.z - origin.z) / direction.z;
+
+		if (tzmin > tzmax) swap(tzmin, tzmax);
+
+		if ((tmin > tzmax) || (tzmin > tmax))
+			return false;
+
+		if (tzmin > tmin)
+			tmin = tzmin;
+
+		if (tzmax < tmax)
+			tmax = tzmax;
+
+		return i;
+	}
+
+	return -1;
+}
+
 // World::LoadTile
 // ----------------------------------------------------------------------------
 uint World::LoadTile( const char* voxFile )
