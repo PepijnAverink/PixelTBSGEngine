@@ -512,6 +512,11 @@ void Tmpl8::World::ScaleSprite(const uint idx, const uint3 scale)
 	sprite[idx]->scale = scale;
 }
 
+void Tmpl8::World::RotateSprite(const uint idx, const float3 rotation)
+{
+	sprite[idx]->rotation = rotation;
+}
+
 // World::LoadTile
 // ----------------------------------------------------------------------------
 uint World::LoadTile( const char* voxFile )

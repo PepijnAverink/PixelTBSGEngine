@@ -33,12 +33,13 @@ public:
 class Sprite
 {
 public:
-	vector<SpriteFrame*> frame;			// sprite frames
-	SpriteFrame* backup;				// backup of pixels that the sprite overwrote
-	int3 lastPos = make_int3( -9999 );	// location where the backup will be restored to
-	int3 currPos = make_int3( -9999 );	// location where the sprite will be drawn
-	int currFrame = 0;					// frame to draw
-	uint3 scale = { 1, 1, 1 };
+	vector<SpriteFrame*> frame;				// sprite frames
+	SpriteFrame* backup;					// backup of pixels that the sprite overwrote
+	int3 lastPos	= make_int3( -9999 );	// location where the backup will be restored to
+	int3 currPos	= make_int3( -9999 );	// location where the sprite will be drawn
+	int currFrame	= 0;					// frame to draw
+	uint3 scale		= { 1, 1, 1 };
+	float3 rotation = { 0.0f, 0.0f, 0.0f };
 };
 
 // Tile system overview:
@@ -105,6 +106,7 @@ public:
 	void MoveSpriteTo( const uint idx, const uint x, const uint y, const uint z );
 	void SetSpriteFrame( const uint idx, const uint frame );
 	void ScaleSprite(const uint idx, const uint3 scale);
+	void RotateSprite(const uint idx, const float3 rotation);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );
 	void DrawTile( const uint idx, const uint x, const uint y, const uint z );
