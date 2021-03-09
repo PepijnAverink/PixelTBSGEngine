@@ -1,6 +1,8 @@
 #include "precomp.h"
 #include "bluenoise.h"
 
+#include <cmath>
+
 using namespace Tmpl8;
 
 static const uint gridSize = GRIDSIZE * sizeof( uint );
@@ -454,8 +456,20 @@ void World::RemoveSprite( const uint idx )
 	if (lastPos.x == -9999) return;
 	const SpriteFrame* backup = sprite[idx]->backup;
 	const int3 s = backup->size;
+	const float3& r = sprite[idx]->lastRotation;
 	for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
-		Set( lastPos.x + u, lastPos.y + v, lastPos.z + w, backup->buffer[i] );
+	{
+		float x0 = lastPos.x + (s.x / 2.0f);
+		float x1 = lastPos.x + u;
+
+		float z0 = lastPos.z + (s.z / 2.0f);
+		float z1 = lastPos.z + w;
+
+		float x2 = cosf(r.y) * (x1 - x0) - sinf(r.y) * (z1 - z0) + x0;
+		float z2 = -sinf(r.y) * (x1 - x0) - cosf(r.y) * (z1 - z0) + z0;
+
+		Set((int)x2, lastPos.y + v, (int)z2, backup->buffer[i]);
+	}
 }
 
 // World::DrawSprite (private; called from World::Commit)
@@ -470,22 +484,34 @@ void World::DrawSprite( const uint idx )
 		SpriteFrame* backup = sprite[idx]->backup;
 		const int3& s = backup->size = frame->size;
 		const uint3& c = sprite[idx]->scale;
+		const float3& r = sprite[idx]->rotation;
+
 		for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
 		{
 			const uint voxel = frame->buffer[i];
-			backup->buffer[i] = Get( pos.x + u, pos.y + v, pos.z + w );
+			backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
 
 			if (voxel != 0)
 			{
-				for (uint i = 0, wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++, i++)
+				for (uint wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++)
 				{
-					Set(pos.x + u * c.x + ui, pos.y + v * c.y + vi, pos.z + w * c.z + +wi, voxel);
+					float x0 = pos.x + (s.x / 2.0f);
+					float x1 = pos.x + u;
+
+					float z0 = pos.z + (s.z / 2.0f);
+					float z1 = pos.z + w;
+
+					float x2 = cosf(r.y) * (x1 - x0) - sinf(r.y) * (z1 - z0) + x0;
+					float z2 = -sinf(r.y) * (x1 - x0) - cosf(r.y) * (z1 - z0) + z0;
+
+					Set((int)x2, pos.y + v * c.y + vi, (int)z2, voxel);
 				}
 			}
 		}
 	}
 	// store this location so we can remove the sprite later
 	sprite[idx]->lastPos = sprite[idx]->currPos;
+	sprite[idx]->lastRotation = sprite[idx]->rotation;
 }
 
 // World::MoveSpriteTo

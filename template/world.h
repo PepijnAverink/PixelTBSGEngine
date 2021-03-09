@@ -40,6 +40,7 @@ public:
 	int currFrame	= 0;					// frame to draw
 	uint3 scale		= { 1, 1, 1 };
 	float3 rotation = { 0.0f, 0.0f, 0.0f };
+	float3 lastRotation = { 0.0f, 0.0f, 0.0f };
 };
 
 // Tile system overview:
@@ -107,7 +108,7 @@ public:
 	void SetSpriteFrame( const uint idx, const uint frame );
 	void ScaleSprite(const uint idx, const uint3 scale);
 	void RotateSprite(const uint idx, const float3 rotation);
-	uint RayCast();
+	uint RayCast(const float3 origin, const float3 direction);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );
 	void DrawTile( const uint idx, const uint x, const uint y, const uint z );
