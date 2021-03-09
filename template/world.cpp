@@ -461,14 +461,15 @@ void World::RemoveSprite( const uint idx )
 	{
 		float x0 = lastPos.x + (s.x / 2.0f);
 		float x1 = lastPos.x + u;
-
+	
 		float z0 = lastPos.z + (s.z / 2.0f);
 		float z1 = lastPos.z + w;
-
+	
 		float x2 = cosf(r.y) * (x1 - x0) - sinf(r.y) * (z1 - z0) + x0;
 		float z2 = -sinf(r.y) * (x1 - x0) - cosf(r.y) * (z1 - z0) + z0;
-
+	
 		Set((int)x2, lastPos.y + v, (int)z2, backup->buffer[i]);
+	//	Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, backup->buffer[i]);
 	}
 }
 
@@ -489,22 +490,27 @@ void World::DrawSprite( const uint idx )
 		for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
 		{
 			const uint voxel = frame->buffer[i];
-			backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
+		//	backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
 
-			if (voxel != 0)
+		//	if (voxel != 0)
 			{
-				for (uint wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++)
+				for (uint j = 0, wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++, j++)
 				{
 					float x0 = pos.x + (s.x / 2.0f);
 					float x1 = pos.x + u;
-
+				
 					float z0 = pos.z + (s.z / 2.0f);
 					float z1 = pos.z + w;
-
+				
 					float x2 = cosf(r.y) * (x1 - x0) - sinf(r.y) * (z1 - z0) + x0;
 					float z2 = -sinf(r.y) * (x1 - x0) - cosf(r.y) * (z1 - z0) + z0;
+				
+					if (j == 0)
+						backup->buffer[i] = Get((int)x2, pos.y + v * c.y + vi, (int)z2);
 
-					Set((int)x2, pos.y + v * c.y + vi, (int)z2, voxel);
+					if (voxel != 0)
+						Set((int)x2, pos.y + v * c.y + vi, (int)z2, voxel);
+				//	Set(pos.x + u * c.x + ui, pos.y + v * c.y + vi, pos.z + w * c.z + wi, voxel);
 				}
 			}
 		}
