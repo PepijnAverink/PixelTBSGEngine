@@ -14,8 +14,8 @@ public:
 	void Tick( float deltaTime );
 	void Shutdown() { /* implement if you want to do something on exit */ }
 	// input handling
-	void MouseUp( int button ) { /* implement if you want to detect mouse button presses */ }
-	void MouseDown( int button ) { /* implement if you want to detect mouse button presses */ }
+	void MouseUp(int button) { mouseClicked = false; }
+	void MouseDown(int button) { mouseClicked = true; }
 	void MouseMove( int x, int y ) { mousePos.x = x, mousePos.y = y; }
 	void KeyUp( int key ) { keys[key] = false; }
 	void KeyDown(int key) { keys[key] = true; }
@@ -23,10 +23,14 @@ public:
 	//Raycasting
 	void HandleMouseRaycasting();
 
+	//GameplayFunctions
+	//void Move(const flecs::entity e, MoveData& tank);
+
 
 	flecs::entity SpawnEntity(uint unit, float3 location = make_float3(0,0,0));
 	// data members
 	int2 mousePos;
+	bool mouseClicked;
 
 private:
 	const uint gridXSize = 10;

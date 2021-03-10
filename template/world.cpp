@@ -622,7 +622,7 @@ uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 		if (tymin > tymax) swap(tymin, tymax);
 
 		if ((tmin > tymax) || (tymin > tmax))
-			return false;
+			continue;
 
 		if (tymin > tmin)
 			tmin = tymin;
@@ -636,7 +636,7 @@ uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 		if (tzmin > tzmax) swap(tzmin, tzmax);
 
 		if ((tmin > tzmax) || (tzmin > tmax))
-			return false;
+			continue;
 
 		if (tzmin > tmin)
 			tmin = tzmin;
