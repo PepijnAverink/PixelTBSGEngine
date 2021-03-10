@@ -21,7 +21,6 @@ void Move(const flecs::entity e, MoveData& tank) {
 	}
 
 	MoveSpriteTo(e.id(), make_int3(tank.currentPos));
-	std::cout << "Worked" << std::endl;
 }
 
 void MyGame::Init()
@@ -103,14 +102,13 @@ void Tmpl8::MyGame::HandleMouseRaycasting()
 	float3 mouseDir = normalize(make_float3(mousePos.x - 640, (800 - mousePos.y) - 400, 0));
 	float angle = GetAngle(0,1, mouseDir.x, mouseDir.y) * 180 / PI;
 	//std::cout << std::to_string(mouseDir.x) + " / " + std::to_string(mouseDir.y) << std::endl;
-	std::cout << angle << std::endl;
-	float3 dir = (world->GetCameraViewDir() * cos(angle)) + (cross(make_float3(0, 1, 0), world->GetCameraViewDir() * sin(angle)) + (make_float3(0, 1, 0) * dot(make_float3(0, 1, 0), world->GetCameraViewDir())) * (1 - cos(angle)));
+	float3 dir = (world->GetCameraViewDir() * cos(angle)) + (cross(make_float3(0, 1,1), world->GetCameraViewDir() * sin(angle)) + (make_float3(0, 1, 1) * dot(make_float3(0, 1, 1), world->GetCameraViewDir())) * (1 - cos(angle)));
 	uint hit = world->RayCast(make_float3(500, 128, 500), dir);
 	MoveSpriteTo(10, make_int3(make_float3(500, 128, 500) + (normalize(dir) * 100)));
 
 	if (hit != -1)
 	{
-		std::cout << "NICE IT works" + hit << std::endl;
+		//std::cout << "NICE IT works" + hit << std::endl;
 	}
 }
 flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, float3 location /* = float3 (0,0,0) */)
