@@ -1,102 +1,122 @@
 #include "precomp.h"
 #include "mygame.h"
-#include "flecs.h"
-#include "bake_config.h"
 #include <iostream>
 
 Game* game = new MyGame();
 
 
-//// Component names ('Position') use PascalCase
-//typedef struct Position {
-//	float x;
-//	float y; // Component members ('y') use snake_case
-//} Position;
-//
-//typedef struct Velocity {
-//	float x;
-//	float y;
-//} Velocity;
-//
-//// System names ('Move') use PascalCase. API types use snake_case_t
-//void Move(ecs_iter_t* it) {
-//	// Functions use snake_case
-//	Position* p = ecs_column(it, Position, 1);
-//	Velocity* v = ecs_column(it, Velocity, 2);
-//
-//	for (int i = 0; i < it->count; i++) {
-//		p[i].x += v[i].x;
-//		p[i].y += v[i].y;
-//	}
-//}
-//
-//void MoveTest(flecs::entity e, Position& p, const Velocity& v) {
-//	p.x += v.x * e.delta_time();
-//	p.y += v.y * e.delta_time();
-//	std::cout << "Entity " << e.name() << " moved!" << std::endl;
-//}
-//
-//flecs::world ecs;
+void Move(const flecs::entity e, MoveData& tank) {
 
-// -----------------------------------------------------------
-// Initialize the application
-// -----------------------------------------------------------
+	float dist = abs(length(tank.target - tank.currentPos));
+	float change = tank.speed * e.delta_time();
+	if (dist > change)
+	{
+		float3 dir = normalize(tank.target - tank.currentPos);
+		tank.currentPos += dir * change;
+	}
+	else
+	{
+		tank.currentPos = tank.target;
+		e.remove<MoveData>();
+	}
+
+	MoveSpriteTo(e.id(), make_int3(tank.currentPos));
+	std::cout << "Worked" << std::endl;
+}
+
 void MyGame::Init()
 {
-	ShowCursor(false);
-	
+	//ShowCursor(false);
+	world = GetWorld();
+	units.Init(*world);
+	terrain.Init(*world);
+	AddComponentsToFlecsWorld();
+	SpawnWorld();
 
-	//ecs.system<Position, const Velocity>().kind(flecs::OnAdd).each(MoveTest);
+	tank = SpawnEntity(units.recon, { 210,1,210 });
+	float3 targetPos = make_float3(world->sprite[grid[(gridXSize - 1)]]->currPos);
+	float3 tankPos = make_float3(world->sprite[tank.id()]->currPos);
+	targetPos.y = tankPos.y;
+	tank.add<MoveData>()
+		.set<MoveData>({ targetPos, 37, tankPos });
+}
 
-	//ecs.entity("MyEntity")
-	//	.set<Position>({ 0, 0 })
-	//	.set<Velocity>({ 1, 1 });
+void Tmpl8::MyGame::AddComponentsToFlecsWorld()
+{
+	ecs.component<MoveData>();
+	ecs.system<MoveData>("Move").each(Move);
+}
 
-	// init deer flock
-//	GetWorld()->LoadSprite("assets/deer.vox");
-//	for (int i = 0; i < 50; i++)
-//	{
-//		GetWorld()->CloneSprite(0);
-//		dx[i] = RandomUInt() % 1000 + 1, dz[i] = i * 20 + 10;
-//		df[i] = RandomUInt() % (GetWorld()->SpriteFrameCount(0) * 4);
-//	}
-
-
-	uint cloneCount = 7;
-	uint startPos = 50;
-	GetWorld()->LoadSprite("assets/tile00.vox");
-	GetWorld()->MoveSpriteTo(0, startPos, 1, 10);
-//	GetWorld()->ScaleSprite(0, {4, 14, 4});
-	uint pos = startPos;
-	for (uint i = 0; i < cloneCount; i++)
+void Tmpl8::MyGame::SpawnWorld()
+{
+	uint spriteSize = 20;
+	uint3 startPos{ 210,1,210 };
+	grid = vector<uint>();
+	for (int i = 0; i < gridXSize; ++i)
 	{
-		pos += (i + 1) * 16;
-
-		uint idx = GetWorld()->CloneSprite(0);
-		GetWorld()->ScaleSprite(idx, {i + 2, i + 2, i + 2});
-		GetWorld()->MoveSpriteTo(idx, pos, 1, 10);
+		for (int ii = 0; ii < gridZSize; ++ii)
+		{
+		 	flecs::entity entity = SpawnEntity(terrain.grass, make_float3(startPos.x + spriteSize * i, 1, startPos.z + spriteSize * ii));
+			grid.push_back(entity.id());
+		}
 	}
 }
 
-// -----------------------------------------------------------
-// Main application tick function
-// -----------------------------------------------------------
-static float rot = 0.0f;
-void MyGame::Tick( float deltaTime )
+void MyGame::Tick(float deltaTime)
 {
-	// This function gets called once per frame by the template code.
-	World* world = GetWorld();
-	world->Print( "Hello World!", 280, 128, 5, 1 );
-	world->SetCameraMatrix( mat4::LookAt( make_float3( 512, 128, 512 ), make_float3( 384, 128, 0 ) ) );
+	world->SetCameraMatrix(mat4::LookAt(make_float3(500, 128, 500), make_float3(300, 1, 300)));
 
-	//ecs.progress();
+	if (keys[GLFW_KEY_G] && index == 0)
+	{
+		index++;
+		float3 targetPos = make_float3(world->sprite[grid[grid.size()-1]]->currPos);
+		float3 tankPos = make_float3(world->sprite[tank.id()]->currPos);
+		targetPos.y = tankPos.y;
+		tank.add<MoveData>()
+		.set<MoveData>({ targetPos, 37, tankPos });
+	}
 
-//	// deer
-//	for (int i = 0; i < 50; i++)
-//	{
-//		world->MoveSpriteTo(i, dx[i], 1, dz[i]);
-//		world->SetSpriteFrame(i, df[i] >> 3);
-//		if (++df[i] == world->SpriteFrameCount(0) * 8) df[i] = 0;
-//		if (--dx[i] < 15) dx[i] = 990;
-//	}
+	HandleMouseRaycasting();
+	//MoveData* tankData = tank.get_mut<MoveData>();
+	//float dist = abs(length(targets[index] - tankData->currentPos));
+	//if (dist < 1)
+	//{
+	//	index++;
+	//	if (index > 3)
+	//	{
+	//		index = 0;
+	//	}
+	//	tankData->target = make_float3(targets[index]);
+	//}
+
+	ecs.progress();
+}
+
+float GetAngle(float xa, float ya, float xb, float yb)
+{
+	return acos(xa * xb + ya * yb) / (sqrt(pow(xa, 2) + pow(ya, 2)) * sqrt(pow(xb, 2) + pow(yb, 2)));
+}
+
+
+void Tmpl8::MyGame::HandleMouseRaycasting()
+{
+	float3 mouseDir = normalize(make_float3(mousePos.x - 640, (800 - mousePos.y) - 400, 0));
+	float angle = GetAngle(0,1, mouseDir.x, mouseDir.y) * 180 / PI;
+	//std::cout << std::to_string(mouseDir.x) + " / " + std::to_string(mouseDir.y) << std::endl;
+	std::cout << angle << std::endl;
+	float3 dir = (world->GetCameraViewDir() * cos(angle)) + (cross(make_float3(0, 1, 0), world->GetCameraViewDir() * sin(angle)) + (make_float3(0, 1, 0) * dot(make_float3(0, 1, 0), world->GetCameraViewDir())) * (1 - cos(angle)));
+	uint hit = world->RayCast(make_float3(500, 128, 500), dir);
+	MoveSpriteTo(10, make_int3(make_float3(500, 128, 500) + (normalize(dir) * 100)));
+
+	if (hit != -1)
+	{
+		std::cout << "NICE IT works" + hit << std::endl;
+	}
+}
+flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, float3 location /* = float3 (0,0,0) */)
+{
+	uint spriteID = world->CloneSprite(unit);
+	world->MoveSpriteTo(spriteID, location.x, location.y, location.z);
+
+	return ecs.entity(spriteID);
 }

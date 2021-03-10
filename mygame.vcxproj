@@ -141,6 +141,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="scripts\Gameplay\GameData.h" />
     <ClInclude Include="scripts\Gameplay\mygame.h" />
     <ClInclude Include="scripts\Imgui\imconfig.h" />
     <ClInclude Include="scripts\Imgui\imgui.h" />
