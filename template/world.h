@@ -41,6 +41,8 @@ public:
 	uint3 scale		= { 1, 1, 1 };
 	float4 rotation     = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float4 lastRotation = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	int3 pivot = make_int3(0, 0, 0);
 };
 
 // Tile system overview:
@@ -108,6 +110,7 @@ public:
 	void SetSpriteFrame( const uint idx, const uint frame );
 	void ScaleSprite(const uint idx, const uint3 scale);
 	void RotateSprite(const uint idx, const float x, const float y, const float z, const float a);
+	void SetSpritePivot(const uint idx, const int x, const int y, const int z);
 	uint RayCast(const float3 origin, const float3 direction);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );

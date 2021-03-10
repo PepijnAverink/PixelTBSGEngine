@@ -456,17 +456,17 @@ void World::RemoveSprite( const uint idx )
 	if (lastPos.x == -9999) return;
 	const SpriteFrame* backup = sprite[idx]->backup;
 	const int3 s = backup->size;
-	const int3& sh = make_int3(s.x / 2, s.y / 2, s.z / 2);
+	const int3& p = sprite[idx]->pivot;
 	const float4& r = sprite[idx]->lastRotation;
 
 	mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
 
 	for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
 	{
-		float4 p = make_float4(-sh.x + u, -sh.y + v, -sh.z + w, 1.0f);
-		float4 p1 = p * matrix;
+		float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
+		float4 p1 = p0 * matrix;
 
-		int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + sh;
+		int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + p;
 
 		Set(p2.x, p2.y, p2.z, backup->buffer[i]);
 
@@ -495,7 +495,7 @@ void World::DrawSprite( const uint idx )
 		const SpriteFrame* frame = sprite[idx]->frame[sprite[idx]->currFrame];
 		SpriteFrame* backup = sprite[idx]->backup;
 		const int3& s = backup->size = frame->size;
-		const int3& sh = make_int3(s.x / 2, s.y / 2, s.z / 2);
+		const int3& p = sprite[idx]->pivot;
 		const uint3& c = sprite[idx]->scale;
 		const float4& r = sprite[idx]->rotation;
 
@@ -505,10 +505,13 @@ void World::DrawSprite( const uint idx )
 		{
 		//	if (fabs(r.w) > 0.0001)
 			{
-				float4 p = make_float4(-sh.x + u, -sh.y + v, -sh.z + w, 1.0f);
-				float4 p1 = p * matrix;
+				float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
+				float4 p1 = p0 * matrix;
 
-				int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + sh;
+				int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
+
+			//	if (i == 0 && idx == 0)
+			//		printf("dt: %i %i %i\n", p2.x, p2.y, p2.z);
 
 			//	float x0 = pos.x + sh.x;
 			//	float x1 = pos.x + u;
@@ -536,10 +539,10 @@ void World::DrawSprite( const uint idx )
 				{
 				//	if (fabs(r.w) > 0.0001)
 					{
-						float4 p = make_float4(-sh.x + u, -sh.y + v, -sh.z + w, 1.0f);
-						float4 p1 = p * matrix;
+						float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
+						float4 p1 = p0 * matrix;
 
-						int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + sh;
+						int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
 
 					//	float x0 = pos.x + (s.x / 2.0f);
 					//	float x1 = pos.x + u;
@@ -590,6 +593,11 @@ void Tmpl8::World::ScaleSprite(const uint idx, const uint3 scale)
 void Tmpl8::World::RotateSprite(const uint idx, const float x, const float y, const float z, const float a)
 {
 	sprite[idx]->rotation = make_float4(x, y, z, a);
+}
+
+void Tmpl8::World::SetSpritePivot(const uint idx, const int x, const int y, const int z)
+{
+	sprite[idx]->pivot = make_int3(x, y, z);
 }
 
 uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
