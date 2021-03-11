@@ -1,27 +1,10 @@
 #include "precomp.h"
 #include "mygame.h"
+#include "GameFunctions.h"
 #include <iostream>
 
 Game* game = new MyGame();
 
-
-void Move(const flecs::entity e, MoveData& tank) {
-
-	float dist = abs(length(tank.target - tank.currentPos));
-	float change = tank.speed * e.delta_time();
-	if (dist > change)
-	{
-		float3 dir = normalize(tank.target - tank.currentPos);
-		tank.currentPos += dir * change;
-	}
-	else
-	{
-		tank.currentPos = tank.target;
-		e.disable<MoveData>();
-	}
-
-	MoveSpriteTo(e.id(), make_int3(tank.currentPos));
-}
 
 void MyGame::Init()
 {
@@ -32,18 +15,32 @@ void MyGame::Init()
 	AddComponentsToFlecsWorld();
 	SpawnWorld();
 
-	tank = SpawnEntity(units.recon, { 210,1,210 });
-	float3 targetPos = make_float3(world->sprite[grid[(gridXSize - 1)]]->currPos);
+	flecs::entity tank = SpawnEntity(units.recon, 1, { 210,3,210 });
 	float3 tankPos = make_float3(world->sprite[tank.id()]->currPos);
-	targetPos.y = tankPos.y;
+	float tankRot = 0;
 	tank.add<MoveData>()
-		.set<MoveData>({ targetPos, 37, tankPos });
+		.set<MoveData>({ tankPos, 37, tankPos })
+		.disable<MoveData>()
+		.add<WeaponData>()
+		.set<WeaponData>({ tankRot, 100,120,500,0,units.bazooka,tankRot,5,0,100});
+
+
+	SpawnEntity(units.aAirMissile, 2, { 390,3,210 });
+	SpawnEntity(units.aAirMissile, 2, { 210,3,390 });
+	SpawnEntity(units.aAirMissile, 2, { 390,3,390 });
+
 }
 
 void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 {
 	ecs.component<MoveData>();
-	ecs.system<MoveData>("Move").each(Move);
+	ecs.component<Player1>();
+	ecs.component<Player2>();
+	ecs.component<Dead>();
+	ecs.system<MoveData>("MoveEntity").each(GameplayFunctions::MoveEntity);
+	ecs.system<MoveData>("OnMoveStart").kind(flecs::Disabled).each(GameplayFunctions::OnMoveStart);
+	ecs.system<WeaponData>("WeaponUpdate").each(GameplayFunctions::WeaponUpdate);
+	ecs.system<ShotObjectData>("MoveShotObject").each(GameplayFunctions::MoveShotObject);
 }
 
 void Tmpl8::MyGame::SpawnWorld()
@@ -55,7 +52,7 @@ void Tmpl8::MyGame::SpawnWorld()
 	{
 		for (int ii = 0; ii < gridZSize; ++ii)
 		{
-			flecs::entity entity = SpawnEntity(terrain.grass, make_float3(startPos.x + spriteSize * i, 1, startPos.z + spriteSize * ii));
+			flecs::entity entity = SpawnEntity(terrain.grass, 0, make_float3(startPos.x + spriteSize * i, 1, startPos.z + spriteSize * ii));
 			grid.push_back(entity.id());
 		}
 	}
@@ -67,13 +64,17 @@ void MyGame::Tick(float deltaTime)
 
 	if (mouseClicked)
 	{
-		HandleMouseRaycasting();
+		uint objectHit = HandleMouseRaycasting();
+		if (objectHit > 0)
+		{
+			SetSelectedTanksTarget(make_float3(world->sprite[objectHit]->currPos));
+		}
 	}
 
 	ecs.progress();
 }
 
-void Tmpl8::MyGame::HandleMouseRaycasting()
+uint Tmpl8::MyGame::HandleMouseRaycasting()
 {
 	float2 screenResolution = make_float2(1280,800);
 	float fovX = PI/3.0f;
@@ -87,23 +88,31 @@ void Tmpl8::MyGame::HandleMouseRaycasting()
 
 	float3 dir = normalize(world->GetCameraViewDir() + (dx + dy) * 2.0);
 
-	uint hit = world->RayCast(make_float3(500, 128, 500), dir);
-
-	if (hit > 0)
-	{
-		tank.enable<MoveData>();
-		float3 targetPos = make_float3(world->sprite[hit]->currPos);
-		float3 tankPos = make_float3(world->sprite[tank.id()]->currPos);
-		targetPos.y = tankPos.y;
-		MoveData* moveData = tank.get_mut<MoveData>();
-		moveData->target = targetPos;
-		tank.modified<MoveData>();
-	}
+	return world->RayCast(make_float3(500, 128, 500), dir);
 }
-flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, float3 location /* = float3 (0,0,0) */)
+
+//void Tmpl8::MyGame::SetTankTarget(float3 target)
+//{
+//	tank.enable<MoveData>();
+//	float3 tankPos = make_float3(world->sprite[tank.id()]->currPos);
+//	target.y = tankPos.y;
+//	MoveData* moveData = tank.get_mut<MoveData>();
+//	moveData->target = target;
+//	tank.modified<MoveData>();
+//}
+
+
+void Tmpl8::MyGame::SetSelectedTanksTarget(float3 target)
+{
+}
+
+flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, int playerID /* = 0*/, float3 location /* = float3 (0,0,0) */)
 {
 	uint spriteID = world->CloneSprite(unit);
 	world->MoveSpriteTo(spriteID, location.x, location.y, location.z);
+	flecs::entity entity = ecs.entity(spriteID);
+	if (playerID == 1) { entity.add<Player1>(); }
+	else if (playerID == 2) { entity.add<Player2>(); }
 
-	return ecs.entity(spriteID);
+	return entity;
 }

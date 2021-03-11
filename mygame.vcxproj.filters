@@ -42,6 +42,7 @@
     <ClInclude Include="scripts\Imgui\imstb_textedit.h" />
     <ClInclude Include="scripts\Imgui\imstb_truetype.h" />
     <ClInclude Include="scripts\Gameplay\GameData.h" />
+    <ClInclude Include="scripts\Gameplay\GameFunctions.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cl\kernels.cl">

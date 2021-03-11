@@ -21,13 +21,14 @@ public:
 	void KeyDown(int key) { keys[key] = true; }
 
 	//Raycasting
-	void HandleMouseRaycasting();
+	uint HandleMouseRaycasting();
 
 	//GameplayFunctions
-	//void Move(const flecs::entity e, MoveData& tank);
+	//void SetTankTarget(float3 target);
+	void SetSelectedTanksTarget(float3 target);
 
 
-	flecs::entity SpawnEntity(uint unit, float3 location = make_float3(0,0,0));
+	flecs::entity SpawnEntity(uint unit, int playerID = 0, float3 location = make_float3(0,0,0));
 	// data members
 	int2 mousePos;
 	bool mouseClicked;
@@ -37,8 +38,7 @@ private:
 	const uint gridZSize = 10;
 	vector<uint> grid;
 	uint index = 0;
-	flecs::world ecs;
-	flecs::entity tank;
+	//flecs::entity tank;
 	Units units;
 	Terrain terrain;
 	World* world;
