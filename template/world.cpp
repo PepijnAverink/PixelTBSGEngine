@@ -600,6 +600,18 @@ void Tmpl8::World::SetSpritePivot(const uint idx, const int x, const int y, cons
 	sprite[idx]->pivot = make_int3(x, y, z);
 }
 
+void Tmpl8::World::EnableSprite(const uint idx)
+{
+	sprite[idx]->currPos.x = 0;
+	sprite[idx]->lastPos.x = 0;
+}
+
+void Tmpl8::World::DisableSprite(const uint idx)
+{
+	sprite[idx]->currPos.x = -9999;
+	sprite[idx]->lastPos.x = -9999;
+}
+
 uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 {
 	for (uint32_t i = 0; i < sprite.size(); i++)

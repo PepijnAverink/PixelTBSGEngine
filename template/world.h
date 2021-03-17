@@ -35,10 +35,10 @@ class Sprite
 public:
 	vector<SpriteFrame*> frame;				// sprite frames
 	SpriteFrame* backup;					// backup of pixels that the sprite overwrote
-	int3 lastPos	= make_int3( -9999 );	// location where the backup will be restored to
-	int3 currPos	= make_int3( -9999 );	// location where the sprite will be drawn
-	int currFrame	= 0;					// frame to draw
-	uint3 scale		= { 1, 1, 1 };
+	int3 lastPos		= make_int3( -9999 );	// location where the backup will be restored to
+	int3 currPos		= make_int3( -9999 );	// location where the sprite will be drawn
+	int currFrame		= 0;					// frame to draw
+	uint3 scale			= { 1, 1, 1 };
 	float4 rotation     = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float4 lastRotation = { 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -94,6 +94,7 @@ public:
 	void LoadSky( const char* filename, const char* bin_name );
 	// camera
 	void SetCameraMatrix( const mat4& m ) { camMat = m; }
+	void SetCameraMatrix( const mat4& m ) { camMat = m; }
 	float3 GetCameraViewDir() { return make_float3( camMat[2], camMat[6], camMat[10] ); }
 	mat4& GetCameraMatrix() { return camMat; }
 	// render flow
@@ -111,6 +112,8 @@ public:
 	void ScaleSprite(const uint idx, const uint3 scale);
 	void RotateSprite(const uint idx, const float x, const float y, const float z, const float a);
 	void SetSpritePivot(const uint idx, const int x, const int y, const int z);
+	void EnableSprite(const uint idx);
+	void DisableSprite(const uint idx);
 	uint RayCast(const float3 origin, const float3 direction);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );
