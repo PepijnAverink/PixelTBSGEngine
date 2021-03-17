@@ -114,6 +114,7 @@ public:
 	void SetSpritePivot(const uint idx, const int x, const int y, const int z);
 	void EnableSprite(const uint idx);
 	void DisableSprite(const uint idx);
+	void DestroySprite(const uint idx);
 	uint RayCast(const float3 origin, const float3 direction);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );
@@ -291,6 +292,7 @@ private:
 	bool firstFrame = true;				// for doing things in the first frame
 public: // TODO: protected
 	vector<Sprite*> sprite;				// list of loaded sprites
+	vector<uint>	freelist;
 	vector<Tile*> tile;					// list of loaded tiles
 	vector<BigTile*> bigTile;			// list of loaded big tiles
 };

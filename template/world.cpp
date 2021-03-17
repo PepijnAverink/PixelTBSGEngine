@@ -350,7 +350,16 @@ uint World::LoadSprite( const char* voxFile )
 	};
 	memcpy( palette, default_palette, 1024 );
 	// create the sprite
-	Sprite* newSprite = new Sprite();
+	bool newCreated = true;
+	Sprite* newSprite;
+	if (freelist.size() > 1)
+	{
+		newSprite = sprite[freelist[0]];
+		freelist.erase(freelist.begin());
+		newCreated = false;
+	}
+	else
+		newSprite = new Sprite();
 	SpriteFrame* frame = 0;
 	int frameCount = 1; // will be overwritten if we encounter a 'PACK' chunk
 	// load chunks
@@ -415,7 +424,8 @@ uint World::LoadSprite( const char* voxFile )
 	backupFrame->size = maxSize;
 	backupFrame->buffer = new uchar[maxSize.x * maxSize.y * maxSize.z];
 	newSprite->backup = backupFrame;
-	sprite.push_back( newSprite );
+	if (newCreated)
+		sprite.push_back( newSprite );
 	// all done, return sprite index
 	return (uint)sprite.size() - 1;
 }
@@ -425,7 +435,17 @@ uint World::LoadSprite( const char* voxFile )
 uint World::CloneSprite( const uint idx )
 {
 	// clone frame data, wich contain pointers to shared frame data
-	Sprite* newSprite = new Sprite();
+	bool newCreated = true;
+	Sprite* newSprite;
+	if (freelist.size() > 1)
+	{
+		newSprite = sprite[freelist[0]];
+		freelist.erase(freelist.begin());
+		newCreated = false;
+	}
+	else
+		newSprite = new Sprite();
+
 	if (idx >= sprite.size()) return 0;
 	newSprite->frame = sprite[idx]->frame;
 	// clone backup frame, which will be unique per instance
@@ -433,7 +453,9 @@ uint World::CloneSprite( const uint idx )
 	backupFrame->size = sprite[idx]->backup->size;
 	backupFrame->buffer = new uchar[backupFrame->size.x * backupFrame->size.y * backupFrame->size.z];
 	newSprite->backup = backupFrame;
-	sprite.push_back( newSprite );
+
+	if (newCreated)
+		sprite.push_back( newSprite );
 	return (uint)sprite.size() - 1;
 }
 
@@ -610,6 +632,25 @@ void Tmpl8::World::DisableSprite(const uint idx)
 {
 	sprite[idx]->currPos.x = -9999;
 	sprite[idx]->lastPos.x = -9999;
+}
+
+void Tmpl8::World::DestroySprite(const uint idx)
+{
+	// Disable sprite and add to list
+	DisableSprite(idx);
+	freelist.push_back(idx);
+
+	// Remove all sprite allocations
+	Sprite* s = sprite[idx];
+	delete s->backup;
+	for (SpriteFrame* sf : s->frame)
+		delete sf;
+
+	s->scale = { 1, 1, 1 };
+	s->rotation = { 0.0f, 0.0f, 0.0f, 0.0f };
+	s->lastRotation = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+	s->pivot = make_int3(0, 0, 0);
 }
 
 uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
