@@ -94,7 +94,6 @@ public:
 	void LoadSky( const char* filename, const char* bin_name );
 	// camera
 	void SetCameraMatrix( const mat4& m ) { camMat = m; }
-	void SetCameraMatrix( const mat4& m ) { camMat = m; }
 	float3 GetCameraViewDir() { return make_float3( camMat[2], camMat[6], camMat[10] ); }
 	mat4& GetCameraMatrix() { return camMat; }
 	// render flow
