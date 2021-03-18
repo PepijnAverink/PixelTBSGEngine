@@ -86,7 +86,7 @@ class World
 {
 public:
 	// constructor / destructor
-	World( const uint targetID );
+	World( const uint targetID0);
 	~World();
 	// initialization
 	void Clear();
@@ -280,6 +280,10 @@ private:
 	RenderParams params;				// CPU-side copy of the renderer parameters
 	Kernel* renderer, * committer;		// render kernel and commit kernel
 	Kernel* finalize;					// finalize kernel (TAA)
+
+	Kernel* kernel;
+	cl_event kernelDone;
+
 	cl_event copyDone, commitDone;		// events for queue synchronization
 	cl_event renderDone;				// event used for profiling
 	uint tasks = 0;						// number of changed bricks, to be passed to commit kernel
@@ -287,6 +291,7 @@ private:
 	bool commitInFlight = false;		// flag to make next commit wait for previous to complete
 	cl_mem devmem = 0;					// device-side commit buffer
 	cl_mem gridMap;						// host-side 3D image for top-level
+	cl_mem offscreenRT;
 	Surface* font;						// bitmap font for print command
 	bool firstFrame = true;				// for doing things in the first frame
 public: // TODO: protected

@@ -25,23 +25,38 @@ static const uint commitSize = BRICKCOMMITSIZE + gridSize;
 
 // World Constructor
 // ----------------------------------------------------------------------------
-World::World( const uint targetID )
+World::World( const uint targetID0)
 {
 	// create the commit buffer, used to sync CPU-side changes to the GPU
 	if (!Kernel::InitCL()) FATALERROR( "Failed to initialize OpenCL" );
 	devmem = clCreateBuffer( Kernel::GetContext(), CL_MEM_READ_ONLY, commitSize, 0, 0 );
 	modified = new uint[BRICKCOUNT / 32]; // 1 bit per brick, to track 'dirty' bricks
 	// store top-level grid in a 3D texture
-	cl_image_format fmt;
-	fmt.image_channel_order = CL_R;
-	fmt.image_channel_data_type = CL_UNSIGNED_INT32;
-	cl_image_desc desc;
-	memset( &desc, 0, sizeof( cl_image_desc ) );
-	desc.image_type = CL_MEM_OBJECT_IMAGE3D;
-	desc.image_width = MAPWIDTH / BRICKDIM;
-	desc.image_height = MAPHEIGHT / BRICKDIM;
-	desc.image_depth = MAPDEPTH / BRICKDIM;
-	gridMap = clCreateImage( Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0 );
+	{
+		cl_image_format fmt;
+		fmt.image_channel_order = CL_R;
+		fmt.image_channel_data_type = CL_UNSIGNED_INT32;
+		cl_image_desc desc;
+		memset(&desc, 0, sizeof(cl_image_desc));
+		desc.image_type = CL_MEM_OBJECT_IMAGE3D;
+		desc.image_width = MAPWIDTH / BRICKDIM;
+		desc.image_height = MAPHEIGHT / BRICKDIM;
+		desc.image_depth = MAPDEPTH / BRICKDIM;
+		gridMap = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+	}
+	{
+		cl_image_format fmt;
+		fmt.image_channel_order = CL_RGBA;
+		fmt.image_channel_data_type = CL_UNORM_INT8;
+		cl_image_desc desc;
+		memset(&desc, 0, sizeof(cl_image_desc));
+		desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+		desc.image_width = 1280;
+		desc.image_height = 720;
+		desc.image_depth = 1;
+		offscreenRT = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+	}
+
 	// create brick storage
 	brick = (uchar*)_aligned_malloc( BRICKCOUNT * BRICKSIZE, 64 );
 	brickBuffer = new Buffer( (BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, brick );
@@ -65,16 +80,21 @@ World::World( const uint targetID )
 	// initialize kernels
 	paramBuffer = new Buffer( sizeof( RenderParams ) / 4, Buffer::DEFAULT | Buffer::READONLY, &params );
 #if CPUONLY == 0
-	screen = new Buffer( targetID, Buffer::TARGET );
+	screen = new Buffer( targetID0, Buffer::TARGET );
+
 	renderer = new Kernel( "cl/kernels.cl", "render" );
 	committer = new Kernel( renderer->GetProgram(), "commit" );
-	renderer->SetArgument( 0, screen );
+	kernel = new Kernel("cl/fxaakernel.cl", "copy");
+
+	renderer->SetArgument( 0, &offscreenRT);
 	renderer->SetArgument( 1, paramBuffer );
 	renderer->SetArgument( 2, &gridMap );
 	renderer->SetArgument( 3, brickBuffer );
 	renderer->SetArgument( 4, sky );
 	committer->SetArgument( 1, &devmem );
 	committer->SetArgument( 2, brickBuffer );
+	kernel->SetArgument(0, screen);
+	kernel->SetArgument(1, &offscreenRT);
 	// prepare the bluenoise data
 	const uchar* data8 = (const uchar*)sob256_64; // tables are 8 bit per entry
 	uint* data32 = new uint[65536 * 5]; // we want a full uint per entry
@@ -88,7 +108,7 @@ World::World( const uint targetID )
 	delete data32;
 	renderer->SetArgument( 5, blueNoise );
 #endif
-	targetTextureID = targetID;
+	targetTextureID = targetID0;
 	// load a bitmap font for the print command
 	font = new Surface( "assets/font.png" );
 }
@@ -655,8 +675,12 @@ void Tmpl8::World::DestroySprite(const uint idx)
 
 uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 {
+	uint index = -1;
+	float t = 0.0f, td = 0.0f;
 	for (uint32_t i = 0; i < sprite.size(); i++)
 	{
+
+
 		int3  p = sprite[i]->currPos;
 		int3  s = sprite[i]->backup->size;
 		uint3 c = sprite[i]->scale;
@@ -697,10 +721,22 @@ uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 		if (tzmax < tmax)
 			tmax = tzmax;
 
-		return i;
+		td = tmin;
+
+		if (td < 0) {
+			td = tmax;
+			if (td < 0) 
+				continue;
+		}
+		
+		if (td > t)
+		{
+			t = td;
+			index = i;
+		}
 	}
 
-	return -1;
+	return index;
 }
 
 // World::LoadTile
@@ -1010,7 +1046,9 @@ void World::Render()
 	}
 	// get render parameters to GPU and invoke kernel asynchronously
 	paramBuffer->CopyToDevice( false );
-	renderer->Run( screen, make_int2( 32, 4 ) );
+	renderer->Run(0, &renderDone );
+
+	kernel->Run(screen, make_int2(32, 4));
 #else
 	// CPU-only path
 	static Surface* target = 0;
