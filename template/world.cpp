@@ -507,26 +507,21 @@ void World::RemoveSprite( const uint idx )
 
 	mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
 
-	for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
+	for (int i = s.x * s.y * s.z - 1, w = s.z - 1; w >= 0; w--) for (int v = s.y - 1; v >= 0; v--) for (int u = s.x - 1; u >= 0; u--, i--)
 	{
-		float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
-		float4 p1 = p0 * matrix;
-
-		int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + p;
-
-		Set(p2.x, p2.y, p2.z, backup->buffer[i]);
-
-//		float x0 = lastPos.x + (s.x / 2.0f);
-//		float x1 = lastPos.x + u;
-//	
-//		float z0 = lastPos.z + (s.z / 2.0f);
-//		float z1 = lastPos.z + w;
-//	
-//		float x2 = cosf(r.y) * (x1 - x0) - sinf(r.y) * (z1 - z0) + x0;
-//		float z2 = -sinf(r.y) * (x1 - x0) - cosf(r.y) * (z1 - z0) + z0;
-//	
-//		Set((int)x2, lastPos.y + v, (int)z2, backup->buffer[i]);
-//	//	Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, backup->buffer[i]);
+		if (fabs(r.w) > 0.0001)
+		{
+			float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
+			float4 p1 = p0 * matrix;
+	
+			int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + p;
+	
+			Set(p2.x, p2.y, p2.z, backup->buffer[i]);
+		}
+		else
+		{
+			Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, backup->buffer[i]);
+		}
 	}
 }
 
@@ -546,34 +541,6 @@ void World::DrawSprite( const uint idx )
 		const float4& r = sprite[idx]->rotation;
 
 		mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
-		
-		for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
-		{
-		//	if (fabs(r.w) > 0.0001)
-			{
-				float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
-				float4 p1 = p0 * matrix;
-
-				int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
-
-			//	if (i == 0 && idx == 0)
-			//		printf("dt: %i %i %i\n", p2.x, p2.y, p2.z);
-
-			//	float x0 = pos.x + sh.x;
-			//	float x1 = pos.x + u;
-			//
-			//	float z0 = pos.z + sh.z;
-			//	float z1 = pos.z + w;
-			//
-			//	float x2 = cosf(r.w) * (x1 - x0) - sinf(r.w) * (z1 - z0) + x0;
-			//	float z2 = -sinf(r.w) * (x1 - x0) - cosf(r.w) * (z1 - z0) + z0;
-
-				backup->buffer[i] = Get(p2.x, p2.y, p2.z);
-			}
-		//	else
-		//		backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
-		}float3;
-		
 
 		for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
 		{
@@ -581,29 +548,39 @@ void World::DrawSprite( const uint idx )
 
 			if (voxel != 0)
 			{
-				for (uint j = 0, wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++, j++)
-				{
-				//	if (fabs(r.w) > 0.0001)
+		//		for (uint j = 0, wi = 0; wi < c.z; wi++) for (uint vi = 0; vi < c.y; vi++) for (uint ui = 0; ui < c.x; ui++, j++)
+		//		{
+					if (fabs(r.w) > 0.0001)
 					{
 						float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
 						float4 p1 = p0 * matrix;
-
+				
 						int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
-
-					//	float x0 = pos.x + (s.x / 2.0f);
-					//	float x1 = pos.x + u;
-					//
-					//	float z0 = pos.z + (s.z / 2.0f);
-					//	float z1 = pos.z + w;
-					//
-					//	float x2 = cosf(r.y) * (x1 - x0) - sinf(r.y) * (z1 - z0) + x0;
-					//	float z2 = -sinf(r.y) * (x1 - x0) - cosf(r.y) * (z1 - z0) + z0;
-
+				
+						backup->buffer[i] = Get(p2.x, p2.y, p2.z);
 						Set(p2.x, p2.y, p2.z, voxel);
+					}
+					else
+					{
+						backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
+						Set(pos.x + u, pos.y + v, pos.z + w, voxel);
 					}
 				//	else
 				//		Set(pos.x + u * c.x + ui, pos.y + v * c.y + vi, pos.z + w * c.z + wi, voxel);
+			//	}
+			} 
+			else
+			{
+				if (fabs(r.w) > 0.0001)
+				{
+					float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
+					float4 p1 = p0 * matrix;
+
+					int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
+					backup->buffer[i] = Get(p2.x, p2.y, p2.z);
 				}
+				else
+					backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
 			}
 		}
 	}
@@ -1189,7 +1166,11 @@ void World::Commit()
 		firstFrame = false;		// next frame is not the first frame
 	}
 	// bricks and top-level grid have been moved to the final host-side commit buffer; remove sprites
-	for (uint s = (uint)sprite.size(), i = 0; i < s; i++) RemoveSprite( i );
+	for (int s = sprite.size(), i = sprite.size() - 1; i >= 0; i--)
+	{
+		int z = 0;
+		RemoveSprite(i);
+	}
 }
 
 // World::CheckBrick
