@@ -24,7 +24,7 @@ float4 TextureOffset(read_only image2d_t image, sampler_t sampler, int2 position
 	return read_imagef(image, sampler, (int2)(position + offset));
 }
 
-__kernel void copy(write_only image2d_t output, read_only image2d_t input)
+__kernel void copy(write_only image2d_t output, read_only image2d_t input, read_only image2d_t input1)
 {
 	float2 screenSize = (float2)(1280.0f, 720.0f);
 
@@ -53,7 +53,7 @@ __kernel void copy(write_only image2d_t output, read_only image2d_t input)
 	// Check treshhold
 	float range = rangeMax - rangeMin;
 	if(range < max(EDGE_THRESHOLD_MIN, rangeMax * EDGE_THRESHOLD_MAX)) {
-		write_imagef(output, (int2)(x, y), (float4)(rgbM.xyz, 1.0f) );
+		write_imagef(output, (int2)(x, y), (float4)(TextureOffset(input1, sampler, position, (int2)( 0,  0)).xyz, 1.0f) );
 		return;
 	}
 
@@ -207,11 +207,6 @@ __kernel void copy(write_only image2d_t output, read_only image2d_t input)
 
 
 	// Read the color at the new UV coordinates, and use it.
-	float4 finalColor = read_imagef(input, sampler, (float2)(finalUv * screenSize));
-	
-	float2 uvs = (float2)(x / 1280.0f, y / 720.0f);
-	float2 color = fabs(uvs - finalUv);
-	//write_imagef(output, (int2)(x, y), (float4)(finalUv, 0.0f, 1.0f) );
-
+	float4 finalColor = read_imagef(input1, sampler, (float2)(finalUv * screenSize));
 	write_imagef(output, (int2)(x, y), (float4)(finalColor) );
 }

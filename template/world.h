@@ -291,7 +291,10 @@ private:
 	bool commitInFlight = false;		// flag to make next commit wait for previous to complete
 	cl_mem devmem = 0;					// device-side commit buffer
 	cl_mem gridMap;						// host-side 3D image for top-level
-	cl_mem offscreenRT;
+	
+	cl_mem diffuseOutput;
+	cl_mem globalIlluminationOutput;
+
 	Surface* font;						// bitmap font for print command
 	bool firstFrame = true;				// for doing things in the first frame
 public: // TODO: protected

@@ -156,7 +156,7 @@ float3 PaniniProjection( float2 tc, const float fov, const float d )
 	return (float3)(sinPhi, tanTheta, cosPhi) * s;
 }
 
-__kernel void render( write_only image2d_t outimg, __constant struct RenderParams* params,
+__kernel void render( write_only image2d_t outimg, write_only image2d_t outimg1, __constant struct RenderParams* params,
 	__read_only image3d_t grid, __global unsigned char* brick, __global float4* sky, __global const uint* blueNoise )
 {
 	// produce primary ray for pixel
@@ -189,11 +189,21 @@ __kernel void render( write_only image2d_t outimg, __constant struct RenderParam
 		const uint v = (uint)(2500 * SphericalTheta( T ) * INVPI - 0.5f);
 		const uint idx = u + v * 5000;
 		pixel = (idx < 5000 * 2500) ? sky[idx].xyz : (float3)(1);
+		
+		write_imagef( outimg, (int2)(column, line), (float4)(pixel, 1) );
 	}
 	else
 	{
 		const float3 BRDF1 = INVPI * (float3)((voxel >> 5) * (1.0f / 7.0f), ((voxel >> 2) & 7) * (1.0f / 7.0f), (voxel & 3) * (1.0f / 3.0f));
 	#if GIRAYS > 0
+		// hardcoded lights - image based lighting, no visibility test
+		pixel = BRDF1 * 2 * (
+			(N.x * N.x) * ((-N.x + 1) * (float3)(NX0) + (N.x + 1) * (float3)(NX1)) +
+			(N.y * N.y) * ((-N.y + 1) * (float3)(NY0) + (N.y + 1) * (float3)(NY1)) +
+			(N.z * N.z) * ((-N.z + 1) * (float3)(NZ0) + (N.z + 1) * (float3)(NZ1))
+		);
+		write_imagef( outimg, (int2)(column, line), (float4)(pixel, 1) );
+	
 		float3 incoming = (float3)(0, 0, 0);
 		uint seed = WangHash( column * 171 + line * 1773 + params->R0 );
 		const float4 I = (float4)(params->E + D * dist, 1);
@@ -233,9 +243,11 @@ __kernel void render( write_only image2d_t outimg, __constant struct RenderParam
 			(N.y * N.y) * ((-N.y + 1) * (float3)(NY0) + (N.y + 1) * (float3)(NY1)) +
 			(N.z * N.z) * ((-N.z + 1) * (float3)(NZ0) + (N.z + 1) * (float3)(NZ1))
 		);
+		
+		write_imagef( outimg, (int2)(column, line), (float4)(pixel, 1) );
 	#endif
 	}
-	write_imagef( outimg, (int2)(column, line), (float4)(pixel, 1) );
+	write_imagef( outimg1, (int2)(column, line), (float4)(pixel, 1) );
 }
 
 __kernel void commit( const int taskCount, __global uint* commit, __global uint* brick )

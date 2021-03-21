@@ -54,7 +54,9 @@ World::World( const uint targetID0)
 		desc.image_width = 1280;
 		desc.image_height = 720;
 		desc.image_depth = 1;
-		offscreenRT = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+
+		diffuseOutput			 = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		globalIlluminationOutput = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
 	}
 
 	// create brick storage
@@ -86,15 +88,17 @@ World::World( const uint targetID0)
 	committer = new Kernel( renderer->GetProgram(), "commit" );
 	kernel = new Kernel("cl/fxaakernel.cl", "copy");
 
-	renderer->SetArgument( 0, &offscreenRT);
-	renderer->SetArgument( 1, paramBuffer );
-	renderer->SetArgument( 2, &gridMap );
-	renderer->SetArgument( 3, brickBuffer );
-	renderer->SetArgument( 4, sky );
+	renderer->SetArgument( 0, &diffuseOutput);
+	renderer->SetArgument( 1, &globalIlluminationOutput);
+	renderer->SetArgument( 2, paramBuffer );
+	renderer->SetArgument( 3, &gridMap );
+	renderer->SetArgument( 4, brickBuffer );
+	renderer->SetArgument( 5, sky );
 	committer->SetArgument( 1, &devmem );
 	committer->SetArgument( 2, brickBuffer );
 	kernel->SetArgument(0, screen);
-	kernel->SetArgument(1, &offscreenRT);
+	kernel->SetArgument(1, &diffuseOutput);
+	kernel->SetArgument(2, &globalIlluminationOutput);
 	// prepare the bluenoise data
 	const uchar* data8 = (const uchar*)sob256_64; // tables are 8 bit per entry
 	uint* data32 = new uint[65536 * 5]; // we want a full uint per entry
@@ -106,7 +110,7 @@ World::World( const uint targetID0)
 	blueNoise = new Buffer( 65536 * 5, Buffer::READONLY, data32 );
 	blueNoise->CopyToDevice();
 	delete data32;
-	renderer->SetArgument( 5, blueNoise );
+	renderer->SetArgument( 6, blueNoise );
 #endif
 	targetTextureID = targetID0;
 	// load a bitmap font for the print command
