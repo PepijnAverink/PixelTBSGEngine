@@ -503,6 +503,7 @@ void World::RemoveSprite( const uint idx )
 	const SpriteFrame* backup = sprite[idx]->backup;
 	const int3 s = backup->size;
 	const int3& p = sprite[idx]->pivot;
+	
 	const float4& r = sprite[idx]->lastRotation;
 
 	mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
