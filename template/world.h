@@ -45,6 +45,33 @@ public:
 	int3 pivot = make_int3(0, 0, 0);
 };
 
+class Particle
+{
+public:
+	int3 lastPos = make_int3(-9999);
+	int3 currPos = make_int3(-9999);
+
+	uint color = 0;
+	bool active = true;
+};
+
+class ParticleSystem
+{
+public:
+	~ParticleSystem() 
+	{
+		for (uint i = 0; i < Particle.size(); i++)
+			delete Particle[i];
+	}
+
+	virtual void Update() = 0;
+
+	int3 currPos = make_int3(-9999);
+
+	std::vector<Particle*> Particle;
+	bool Active = true;
+};
+
 // Tile system overview:
 // The top-level grid / brick layout of the world (see below) fits well with the 
 // classic concept of tiled graphics. A tile is simply an 8x8x8 or 16x16x16 chunk of 
@@ -114,6 +141,8 @@ public:
 	void EnableSprite(const uint idx);
 	void DisableSprite(const uint idx);
 	void DestroySprite(const uint idx);
+	void SpawnParticleSystem(ParticleSystem* system);
+	void UpdateParticleSystems();
 	uint RayCast(const float3 origin, const float3 direction);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );
@@ -302,6 +331,7 @@ public: // TODO: protected
 	vector<uint>	freelist;
 	vector<Tile*> tile;					// list of loaded tiles
 	vector<BigTile*> bigTile;			// list of loaded big tiles
+	vector<ParticleSystem*> system;
 };
 
 } // namespace Tmpl8

@@ -655,6 +655,27 @@ void Tmpl8::World::DestroySprite(const uint idx)
 	s->pivot = make_int3(0, 0, 0);
 }
 
+void Tmpl8::World::SpawnParticleSystem(ParticleSystem* s)
+{
+	system.push_back(s);
+}
+
+void Tmpl8::World::UpdateParticleSystems()
+{
+	for (uint i = 0; i < system.size(); i++)
+	{
+		system[i]->Update();
+
+		// Remove current system
+		if (system[i]->Active == false)
+		{
+			delete system[i];
+			system.erase(system.begin() + i);
+			i--;
+		}
+	}
+}
+
 uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 {
 	uint index = -1;
