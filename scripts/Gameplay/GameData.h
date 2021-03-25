@@ -40,6 +40,18 @@ namespace Tmpl8
 
 	};
 
+	struct Outlines
+	{
+		uint selectionOutline;
+		uint unitOutline;
+
+		void Init(World& world)
+		{
+			selectionOutline = world.LoadSprite("assets/Outline/SelectionOutline.vox");
+			unitOutline = world.LoadSprite("assets/Outline/UnitOutline.vox");
+		}
+	};
+
 	struct Terrain
 	{
 		uint grass;
@@ -80,7 +92,26 @@ namespace Tmpl8
 		}
 	};
 
-	struct MoveData
+	struct BindingUnits
+	{
+		vector<uint> bindedUnits;
+	};
+
+	struct Health
+	{
+		int health;
+		int maxHealth;
+	};
+
+	struct Rotation
+	{
+		float currentRotation;
+		float speed;
+		float target;
+		bool reachedTarget;
+	};
+
+	struct MoveLocation
 	{
 		float3 target;
 		float speed;
@@ -88,10 +119,16 @@ namespace Tmpl8
 		bool reachedTarget;
 	};
 
+	struct MoveAttack
+	{
+		uint target;
+		float shootingRange;
+	};
+
 	struct ShotObjectData
 	{
-		MoveData moveData;
-		flecs::entity target;
+		MoveLocation moveData;
+		uint targetID;
 		float dmg; //not in use now
 	};
 
@@ -109,10 +146,22 @@ namespace Tmpl8
 		float shotObjectSpeed;
 	};
 
-
+	//Tags
 	struct Player1 {};
 
 	struct Player2 {};
 
 	struct Dead {};
+
+	//Filters
+
+	auto filterPlayer1 = flecs::filter(ecs)
+		.include<Player1>()
+		.include_kind(flecs::MatchAll);
+
+	auto filterPlayer2 = flecs::filter(ecs)
+		.include<Player2>()
+		.include_kind(flecs::MatchAll);
+
+
 }

@@ -141,6 +141,7 @@ public:
 	void EnableSprite(const uint idx);
 	void DisableSprite(const uint idx);
 	void DestroySprite(const uint idx);
+	bool IsSpriteDisabled(const uint idx);
 	void SpawnParticleSystem(ParticleSystem* system);
 	void UpdateParticleSystems();
 	uint RayCast(const float3 origin, const float3 direction);

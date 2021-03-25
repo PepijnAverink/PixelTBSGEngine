@@ -655,6 +655,15 @@ void Tmpl8::World::DestroySprite(const uint idx)
 	s->pivot = make_int3(0, 0, 0);
 }
 
+bool Tmpl8::World::IsSpriteDisabled(const uint idx)
+{
+	if (idx > 0 && idx < sprite.size())
+	{
+		return sprite[idx]->currPos.x == -9999;
+	}
+	return true;
+}
+
 void Tmpl8::World::SpawnParticleSystem(ParticleSystem* s)
 {
 	system.push_back(s);
@@ -682,7 +691,10 @@ uint Tmpl8::World::RayCast(const float3 origin, const float3 direction)
 	float t = 0.0f, td = 0.0f;
 	for (uint32_t i = 0; i < sprite.size(); i++)
 	{
-
+		if (IsSpriteDisabled(i))
+		{
+			continue;
+		}
 
 		int3  p = sprite[i]->currPos;
 		int3  s = sprite[i]->backup->size;

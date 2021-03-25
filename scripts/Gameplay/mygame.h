@@ -2,6 +2,7 @@
 #include "flecs.h"
 #include "GameData.h"
 #include <vector>
+#include "Camera.h"
 namespace Tmpl8
 {
 class MyGame : public Game
@@ -14,38 +15,56 @@ public:
 	void Tick( float deltaTime );
 	void Shutdown() { /* implement if you want to do something on exit */ }
 	// input handling
-	void MouseUp(int button) { mouseClicked = false; }
-	void MouseDown(int button) { mouseClicked = true; }
-	void MouseMove( int x, int y ) { mousePos.x = x, mousePos.y = y; }
-	void KeyUp( int key ) { keys[key] = false; }
-	void KeyDown(int key) { keys[key] = true; }
+	void MouseUp(int button);
+	void MouseDown(int button);
+	void MouseMove(int x, int y) { mousePos = make_float2(x, y); };
+	void MouseScrolling(float xAxis, float yAxis);
+	void KeyUp(int key);
+	void KeyDown(int key);
+	void KeyPressed(int key);
 
 	//Raycasting
 	uint HandleMouseRaycasting();
 
 	//GameplayFunctions
-	//void SetTankTarget(float3 target);
-	void SetSelectedTanksTarget(float3 target);
+	void SetUnitMoveLocation(float3 target,flecs::entity& unit);
+	void SetUnitMoveLocationAndRotation(float3 target,flecs::entity& unit);
+	void SetUnitAttackTarget(uint target,flecs::entity& unit);
+	void SetSelectedTanksMoveLocation(float3 target);
+	void SetSelectedTanksAttackTarget(uint target);
+	void SetOutlineSelectedUnits();
+	vector <uint> GetFriendlyUnitInArea(float3 start, float3 end);
+	bool IsFriendlyUnit(uint unitID);
+	bool IsMoveableTerrain(uint terrainID);
+	bool IsEnemyUnit(uint enemyID);
 
-
+	
 	flecs::entity SpawnEntity(uint unit, int playerID = 0, float3 location = make_float3(0,0,0));
-	// data members
-	int2 mousePos;
-	bool mouseClicked;
+	flecs::entity SpawnTank(uint unit, int playerID = 0, float3 location = make_float3(0,0,0));
+
 
 private:
-	const uint gridXSize = 10;
-	const uint gridZSize = 10;
+	float2 mousePos;
+	vector<uint> selectedUnits;
+	uint outlineSprties[20];
+	BindingUnits unitBindings[10];
+	Camera camera;
+
+	const uint gridXSize = 11;
+	const uint gridZSize = 11;
 	vector<uint> grid;
 	uint index = 0;
-	//flecs::entity tank;
+	
+	//Sprites aka voxels
 	Units units;
 	Terrain terrain;
+	Outlines outlines;
+
 	World* world;
 
-	//Input
-	int keys[640];
-
+	//Selecting Units
+	float3 startPos;
+	bool keys[350];
 };
 
 } // namespace Tmpl8

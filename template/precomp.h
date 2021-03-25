@@ -545,6 +545,17 @@ inline float4 operator/( float4 a, float b ) { return make_float4( a.x / b, a.y 
 inline void operator/=( float4& a, float b ) { a.x /= b;	a.y /= b;	a.z /= b;	a.w /= b; }
 inline float4 operator/( float b, float4 a ) { return make_float4( b / a.x, b / a.y, b / a.z, b / a.w ); }
 
+inline bool operator == (const float3 first, const float3 second)
+{
+	return first.x == second.x && first.y == second.y && first.z == second.z;
+}
+
+inline bool operator != (const float3 first, const float3 second)
+{
+	return !(first == second);
+}
+
+
 inline float2 fminf( float2 a, float2 b ) { return make_float2( fminf( a.x, b.x ), fminf( a.y, b.y ) ); }
 inline float3 fminf( float3 a, float3 b ) { return make_float3( fminf( a.x, b.x ), fminf( a.y, b.y ), fminf( a.z, b.z ) ); }
 inline float4 fminf( float4 a, float4 b ) { return make_float4( fminf( a.x, b.x ), fminf( a.y, b.y ), fminf( a.z, b.z ), fminf( a.w, b.w ) ); }
@@ -658,6 +669,27 @@ inline float4 smoothstep( float4 a, float4 b, float4 x )
 	return (y * y * (make_float4( 3.0f ) - (make_float4( 2.0f ) * y)));
 }
 
+inline float RadiansToDegrees(float radians)
+{
+	return radians * (180 / 3.14159265358979323846264f);
+}
+
+inline float DegreesToRadians(float degrees)
+{
+	return degrees / (180 / 3.14159265358979323846264f);
+}
+
+inline float2 RotateVector2(float2 startVector, float angle)
+{
+	float cs = cos(angle);
+	float sn = sin(angle);
+	float2 endVector;
+	endVector.x = startVector.x * cs - startVector.y * sn;
+	endVector.y = startVector.x * sn + startVector.y * cs;
+
+	return endVector;
+}
+
 // axis aligned bounding box class
 class aabb
 {
@@ -759,7 +791,7 @@ public:
 		mat4 M = Translate( P );
 		M[0] = x.x, M[4] = x.y, M[8] = x.z;
 		M[1] = y.x, M[5] = y.y, M[9] = y.z;
-		M[2] = z.x, M[6] = z.y, M[10] = z.z;
+		M[2] = z.x, M[6] = z.y, M[10] = z.z; 
 		return M;
 	}
 	static mat4 LookAt( const float3& pos, const float3& look, const float3& up )
@@ -1174,6 +1206,7 @@ public:
 	virtual void Shutdown() = 0;
 	virtual void MouseUp( int button ) = 0;
 	virtual void MouseDown( int button ) = 0;
+	virtual void MouseScrolling( float xAxis, float yAxis) = 0;
 	virtual void MouseMove( int x, int y ) = 0;
 	virtual void KeyUp( int key ) = 0;
 	virtual void KeyDown( int key ) = 0;
