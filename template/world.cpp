@@ -436,7 +436,7 @@ uint World::LoadSprite( const char* voxFile )
 		for (int s = frame->size.x * frame->size.y * frame->size.z, i = 0; i < s; i++) if (frame->buffer[i])
 		{
 			const uint c = palette[frame->buffer[i]];
-			const uint blue = ((c >> 16) & 255) >> 6, green = ((c >> 8) & 255) >> 5, red = (c & 255) >> 5;
+			const uint red = ((c >> 16) & 255) >> 6, green = ((c >> 8) & 255) >> 5, blue = (c & 255) >> 5;
 			frame->buffer[i] = (red << 5) + (green << 2) + blue;
 		}
 		maxSize.x = max( maxSize.x, frame->size.x );
