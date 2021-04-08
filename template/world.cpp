@@ -61,7 +61,11 @@ World::World( const uint targetID0)
 
 	// create brick storage
 	brick = (uchar*)_aligned_malloc( BRICKCOUNT * BRICKSIZE, 64 );
+	brickMaterial = (uchar*)_aligned_malloc(BRICKCOUNT * BRICKSIZE, 64);
+
 	brickBuffer = new Buffer( (BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, brick );
+	brickMaterialBuffer = new Buffer((BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, brickMaterial);
+
 	brickInfo = new BrickInfo[BRICKCOUNT];
 	// create a cyclic array for unused bricks (all of them, for now)
 	trash = new uint[BRICKCOUNT];
@@ -73,6 +77,7 @@ World::World( const uint targetID0)
 	DummyWorld();
 	LoadSky( "assets/sky_15.hdr", "assets/sky_15.bin" );
 	brickBuffer->CopyToDevice();
+	brickMaterialBuffer->CopyToDevice();
 	ClearMarks(); // clear 'modified' bit array
 	// report memory usage
 	printf( "Allocated %iMB on CPU and GPU for the top-level grid.\n", (int)(gridSize >> 20) );
@@ -437,7 +442,7 @@ uint World::LoadSprite( const char* voxFile )
 		{
 			const uint c = palette[frame->buffer[i]];
 			const uint red = ((c >> 16) & 255) >> 6, green = ((c >> 8) & 255) >> 5, blue = (c & 255) >> 5;
-			frame->buffer[i] = (red << 5) + (green << 2) + blue;
+			frame->buffer[i] = (blue << 5) + (green << 2) + red;
 		}
 		maxSize.x = max( maxSize.x, frame->size.x );
 		maxSize.y = max( maxSize.y, frame->size.y );

@@ -293,7 +293,9 @@ private:
 	mat4 camMat;						// camera matrix to be used for rendering
 	uint* grid = 0;						// pointer to host-side copy of the top-level grid
 	Buffer* brickBuffer;				// OpenCL buffer for the bricks
+	Buffer* brickMaterialBuffer;
 	uchar* brick = 0;					// pointer to host-side copy of the bricks
+	uchar* brickMaterial = 0;
 	uint* modified = 0;					// bitfield to mark bricks for synchronization
 	BrickInfo* brickInfo = 0;			// maintenance data for bricks: zeroes, location
 	volatile inline static LONG trashHead = BRICKCOUNT;	// thrash circular buffer tail
