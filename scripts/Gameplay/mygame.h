@@ -3,6 +3,7 @@
 #include "GameData.h"
 #include <vector>
 #include "Camera.h"
+#include "scripts\Tiled\TileLoader.h"
 namespace Tmpl8
 {
 class MyGame : public Game
@@ -12,6 +13,7 @@ public:
 	void Init();
 	void AddComponentsToFlecsWorld();
 	void SpawnWorld();
+	void SpawnTile(TileData tileData, int3 indexes);
 	void Tick( float deltaTime );
 	void Shutdown() { /* implement if you want to do something on exit */ }
 	// input handling
@@ -25,6 +27,9 @@ public:
 
 	//Raycasting
 	uint HandleMouseRaycasting();
+	uint HandleMouseRaycastingTopDown(float3 pos);
+	float3 GetMousePosInWorld();
+
 
 	//GameplayFunctions
 	void SetUnitMoveLocation(float3 target,flecs::entity& unit);
@@ -50,14 +55,12 @@ private:
 	BindingUnits unitBindings[10];
 	Camera camera;
 
-	const uint gridXSize = 11;
-	const uint gridZSize = 11;
 	vector<uint> grid;
 	uint index = 0;
 	
 	//Sprites aka voxels
 	Units units;
-	Terrain terrain;
+	TileLoader tileLoader;
 	Outlines outlines;
 
 	World* world;

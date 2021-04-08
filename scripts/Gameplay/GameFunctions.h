@@ -61,6 +61,53 @@ void OnMoveStart(const flecs::entity entity, MoveLocation& moveData)
 	moveData.reachedTarget = false;
 }
 
+void UnitHeight(const flecs::entity entity, float3 entityPos, float3 dir)
+{
+	World* world = GetWorld();
+
+
+	float3 enityPosNotRounded = entityPos / 16.0f;
+	int3 roundedEntityPos = make_int3(round(enityPosNotRounded.x), round(enityPosNotRounded.y), round(enityPosNotRounded.z));
+	roundedEntityPos *= 16;
+
+	int2 indexes = make_int2((roundedEntityPos.x / 16.0f) - 10, (roundedEntityPos.z / 16.0f) - 10);
+	int currentTileHeight = heightMap[indexes.x * 32 + indexes.y];
+
+	if (currentTileHeight == 3)
+	{
+		world->MoveSpriteTo(entity.id(), entityPos.x, 32, entityPos.z);
+		return;
+	}
+	else if (currentTileHeight == 0)
+	{
+		world->MoveSpriteTo(entity.id(), entityPos.x, 16, entityPos.z);
+		return;
+	}
+	int targetTileHeight = heightMap[(indexes.x + dir.x) * 32 + (indexes.y + dir.z)];
+	
+	if (currentTileHeight == targetTileHeight)
+	{
+		world->MoveSpriteTo(entity.id(), entityPos.x, ((currentTileHeight - 1) * 8) + 16, entityPos.z);
+		return;
+	}
+
+	float3 diff = entityPos - (roundedEntityPos + (dir * 8));
+	float heightDiffProcent = clamp(abs(round(length(diff))) / 16.0f, 0.0f, 1.0f);
+
+
+	float yPos = 0;
+	if (targetTileHeight < currentTileHeight)
+	{
+		yPos = ((heightDiffProcent + currentTileHeight - 1) * 8) + 16;
+	}
+	else
+	{
+		yPos = (((1 - heightDiffProcent) + currentTileHeight - 1) * 8) + 16;
+	}
+	world->MoveSpriteTo(entity.id(), entityPos.x, yPos, entityPos.z);
+}
+
+
 void MoveEntity(const flecs::entity entity, MoveLocation& moveData) {
 
 	float dist = abs(length(moveData.target - moveData.currentPos));
@@ -79,7 +126,6 @@ void MoveEntity(const flecs::entity entity, MoveLocation& moveData) {
 		}
 		else
 		{
-			float3 dir = normalize(moveData.target - moveData.currentPos);
 			float targetRot = atan2(dir.z, dir.x);
 			world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
 		}
@@ -87,11 +133,13 @@ void MoveEntity(const flecs::entity entity, MoveLocation& moveData) {
 
 		moveData.currentPos += dir * change;
 		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
+		UnitHeight(entity, moveData.currentPos, dir);
 	}
 	else
 	{
 		moveData.currentPos = moveData.target;
 		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
+		UnitHeight(entity, moveData.currentPos, make_float3(0,0,0));
 		moveData.reachedTarget = true;
 		entity.disable<MoveLocation>();
 	}

@@ -12,7 +12,7 @@ void MyGame::Init()
 	//ShowCursor(false);
 	world = GetWorld();
 	units.Init(*world);
-	terrain.Init(*world);
+	tileLoader.Init();
 	outlines.Init(*world);
 
 	for (int i = 0; i < 20; ++i)
@@ -22,13 +22,15 @@ void MyGame::Init()
 	}
 
 	AddComponentsToFlecsWorld();
+	
+	tileLoader.LoadTile("assets/Maps/FirstMap.json");
+	heightMap = tileLoader.GetHeightMap();
 	SpawnWorld();
+	SpawnTank(units.recon, 1, { 370,16,370 });
 
-	SpawnTank(units.recon, 1, { 370,3,370 });
-
-	SpawnEntity(units.aAirMissile, 2, { 390,3,210 });
-	SpawnEntity(units.aAirMissile, 2, { 210,3,390 });
-	SpawnEntity(units.aAirMissile, 2, { 210,3,210 });
+	SpawnEntity(units.aAirMissile, 2, { 390,16,210 });
+	SpawnEntity(units.aAirMissile, 2, { 210,16,390 });
+	SpawnEntity(units.aAirMissile, 2, { 210,16,210 });
 
 	camera = Camera();
 	camera.SetPositionAndLookat(make_float3(500, 128, 500), make_float3(300, 1, 300));
@@ -56,13 +58,44 @@ void Tmpl8::MyGame::SpawnWorld()
 	uint spriteSize = 20;
 	uint3 startPos{ 210,1,210 };
 	grid = vector<uint>();
-	for (int i = 0; i < gridXSize; ++i)
+	for (int i = 0; i < tileLoader.grid.height; ++i)
 	{
-		for (int ii = 0; ii < gridZSize; ++ii)
+		for (int ii = 0; ii < tileLoader.grid.width; ++ii)
 		{
-			flecs::entity entity = SpawnEntity(terrain.grass, 0, make_float3(startPos.x + spriteSize * i, 1, startPos.z + spriteSize * ii));
-			grid.push_back(entity.id());
+			SpawnTile(tileLoader.grid.tiledatasLayer1[i * tileLoader.grid.width + ii],make_int3(i,0,ii));
+			SpawnTile(tileLoader.grid.tiledatasLayer2[i * tileLoader.grid.width + ii],make_int3(i,1,ii));
 		}
+	}
+}
+
+void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
+{
+	if (tileData.tile != 0)
+	{
+		uint3 spawnPos = make_uint3(indexes.x + 10, indexes.y, indexes.z + 10);
+		switch (tileData.tileType)
+		{
+		case TileType::Setdress:
+		case TileType::Building:
+		{
+			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), (indexes.y + 1) *16, indexes.z * 16 + (10 * 16));
+
+			world->DrawBigTile(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
+
+			uint spriteID = world->CloneSprite(tileData.tile);
+			world->MoveSpriteTo(spriteID, spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+			world->SetSpritePivot(spriteID, 10, 0, 10);
+			world->RotateSprite(spriteID, 0, 1, 0, DegreesToRadians(tileData.rotation));
+			break;
+		}
+		case TileType::Terrain:
+		{
+			world->DrawBigTile(tileData.tile, spawnPos.x, spawnPos.y, spawnPos.z);
+			break;
+		}
+		}
+
+		//grid.push_back(entity.id());
 	}
 }
 
@@ -79,8 +112,8 @@ void MyGame::Tick(float deltaTime)
 	//Outline for selection
 	SetOutlineSelectedUnits();
 
-	//float3 direction = make_float3(keys[GLFW_KEY_UP] - keys[GLFW_KEY_DOWN], 0, keys[GLFW_KEY_LEFT] - keys[GLFW_KEY_RIGHT]);
-	float3 direction = make_float3((mousePos.y < 20 ? 1 : 0) - (mousePos.y > 700 ? 1 : 0), 0, (mousePos.x < 20 ? 1 : 0) - (mousePos.x > 1260 ? 1 : 0));
+	float3 direction = make_float3((keys[GLFW_KEY_UP] || keys[GLFW_KEY_W]) - (keys[GLFW_KEY_DOWN] || keys[GLFW_KEY_S]), 0, (keys[GLFW_KEY_LEFT] || keys[GLFW_KEY_A]) - (keys[GLFW_KEY_RIGHT] || keys[GLFW_KEY_D]));
+	//float3 direction = make_float3((mousePos.y < 20 ? 1 : 0) - (mousePos.y > 700 ? 1 : 0), 0, (mousePos.x < 20 ? 1 : 0) - (mousePos.x > 1260 ? 1 : 0));
 	camera.Movement(direction, deltaTime);
 	ecs.progress();
 }
@@ -90,32 +123,33 @@ void Tmpl8::MyGame::MouseUp(int button)
 	keys[button] = false;
 	if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
-		uint objectHit = HandleMouseRaycasting();
+		float3 endPos = GetMousePosInWorld();
+		
+		float dist = abs(length(startPos - endPos));
+		std::vector<uint> unitsInArea = GetFriendlyUnitInArea(startPos, endPos);
+		if (dist > 5 && unitsInArea.size() > 0)
+		{
+			selectedUnits = unitsInArea;
+			return;
+		}
+		
+		uint objectHit = HandleMouseRaycastingTopDown(endPos);
 		if (objectHit > 0 && objectHit < world->sprite.size())
 		{
-			float3 endPos = make_float3(world->sprite[objectHit]->currPos);
-			float dist = abs(length(startPos - endPos));
-
-			std::vector<uint> unitsInArea = GetFriendlyUnitInArea(startPos, endPos);
-			if (dist > 5 && unitsInArea.size() > 0)
-			{
-				selectedUnits = unitsInArea;
-			}
-			else if (IsFriendlyUnit(objectHit))
+			if (IsFriendlyUnit(objectHit))
 			{
 				selectedUnits.clear();
 				selectedUnits.push_back(objectHit);
+				return;
 			}
 			else if (IsEnemyUnit(objectHit))
 			{
 				SetSelectedTanksAttackTarget(objectHit);
 				std::cout << "Works" << std::endl;
-			}
-			else if (IsMoveableTerrain(objectHit))
-			{
-				SetSelectedTanksMoveLocation(make_float3(world->sprite[objectHit]->currPos));
+				return;
 			}
 		}
+		SetSelectedTanksMoveLocation(endPos);
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT)
@@ -129,16 +163,18 @@ void Tmpl8::MyGame::MouseDown(int button)
 	keys[button] = true;
 	if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
-		uint objectHit = HandleMouseRaycasting();
-		if (objectHit > 0 && objectHit < world->sprite.size())
-		{
-			//if (IsEnemyUnit(objectHit))
-			//{
-				//Can Add cursor indicator of enemy unit
-			//}
-			
-			startPos = make_float3(world->sprite[objectHit]->currPos);
-		}
+		//uint objectHit = HandleMouseRaycasting();
+		//if (objectHit > 0 && objectHit < world->sprite.size())
+		//{
+		//	//if (IsEnemyUnit(objectHit))
+		//	//{
+		//		//Can Add cursor indicator of enemy unit
+		//	//}
+		//	
+		//	startPos = make_float3(world->sprite[objectHit]->currPos);
+		//}
+
+		startPos = GetMousePosInWorld();
 	}
 }
 
@@ -180,7 +216,7 @@ uint Tmpl8::MyGame::HandleMouseRaycasting()
 	float fovX = PI / 5.0f;
 
 	float mx = (float)(((screenResolution.x - mousePos.x) - screenResolution.x * 0.5) * (1.0 / screenResolution.x) * fovX);
-	float my = (float)(((screenResolution.y - mousePos.y) - screenResolution.y * 0.5) * (1.0 / screenResolution.y) * fovX);
+	float my = (float)(((screenResolution.y - mousePos.y) - screenResolution.y * 0.5) * (1.0 / screenResolution.x) * fovX);
 	float3 cameraForward = world->GetCameraViewDir();
 	float3 cameraRight = cross(cameraForward, camera.GetCameraUp());
 	float3 dx = cameraRight * mx;
@@ -191,6 +227,39 @@ uint Tmpl8::MyGame::HandleMouseRaycasting()
 	uint raycastHit = world->RayCast(camera.GetPos(), dir);
 
 	return raycastHit;
+}
+
+uint Tmpl8::MyGame::HandleMouseRaycastingTopDown(float3 pos)
+{
+	float3 rayCastPos = pos;
+	rayCastPos.y += 64;
+	return world->RayCast(rayCastPos, make_float3(0,-1,0));
+}
+
+float3 Tmpl8::MyGame::GetMousePosInWorld()
+{
+	float2 screenResolution = make_float2(1280, 720);
+	float fovX = PI / 5.0f;
+
+	float mx = (float)(((screenResolution.x - mousePos.x) - screenResolution.x * 0.5) * (1.0 / screenResolution.x) * fovX);
+	float my = (float)(((screenResolution.y - mousePos.y) - screenResolution.y * 0.5) * (1.0 / screenResolution.y) * fovX);
+
+
+	float3 cameraForward = world->GetCameraViewDir();
+	float3 cameraRight = cross(cameraForward, camera.GetCameraUp());
+	float3 dx = cameraRight * mx;
+	float3 dy = camera.GetCameraUp() * my;
+
+	float3 dir = normalize(cameraForward + ((dx + dy) * 2.0));
+
+
+	float numberOfSteps = (camera.GetPos().y - 16) / abs(dir.y);
+
+	float3 locationInWorld = camera.GetPos() + (dir * numberOfSteps);
+
+	//std::cout << to_string(locationInWorld.x) + "/" + to_string(locationInWorld.y) + "/" + to_string(locationInWorld.z) << std::endl;
+
+	return locationInWorld;
 }
 
 void Tmpl8::MyGame::SetUnitMoveLocation(float3 target, flecs::entity& unit)
@@ -237,10 +306,15 @@ void Tmpl8::MyGame::SetUnitAttackTarget(uint target, flecs::entity& unit)
 
 void Tmpl8::MyGame::SetSelectedTanksMoveLocation(float3 target)
 {
+	//Index of the grid
+	int3 indexes = make_int3(round(target.x / 16), 0, round(target.z / 16));
+	//recalculate point to go
+	float3 newTarget = make_float3(indexes.x * 16, target.y, indexes.z * 16);
+
 	for (uint unit : selectedUnits)
 	{	
 		ecs.entity(unit).disable<MoveAttack>();
-		SetUnitMoveLocationAndRotation(target, ecs.entity(unit));
+		SetUnitMoveLocationAndRotation(newTarget, ecs.entity(unit));
 	}
 }
 

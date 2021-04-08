@@ -47,7 +47,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>template;.;lib\FreeImage\inc;lib\glad\include;lib\glfw\include;lib\OpenCL\inc;lib\Flecs\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>template;.;lib\FreeImage\inc;lib\glad\include;lib\glfw\include;lib\OpenCL\inc;lib\Flecs\include;lib\Tileson\include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
@@ -130,6 +130,7 @@
     <ClCompile Include="scripts\Imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="scripts\Imgui\imgui_tables.cpp" />
     <ClCompile Include="scripts\Imgui\imgui_widgets.cpp" />
+    <ClCompile Include="scripts\Tiled\TileLoader.cpp" />
     <ClCompile Include="template\template.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">precomp.h</PrecompiledHeaderFile>
@@ -154,6 +155,7 @@
     <ClInclude Include="scripts\Imgui\imstb_rectpack.h" />
     <ClInclude Include="scripts\Imgui\imstb_textedit.h" />
     <ClInclude Include="scripts\Imgui\imstb_truetype.h" />
+    <ClInclude Include="scripts\Tiled\TileLoader.h" />
     <ClInclude Include="template\bluenoise.h" />
     <ClInclude Include="template\common.h" />
     <ClInclude Include="template\precomp.h" />

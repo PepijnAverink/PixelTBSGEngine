@@ -1,9 +1,11 @@
 #pragma once
-
+#include "flecs.h"
 namespace Tmpl8
 {
 
 	flecs::world ecs;
+	vector<int> heightMap;
+
 	struct Units
 	{
 		uint recon;
@@ -49,46 +51,6 @@ namespace Tmpl8
 		{
 			selectionOutline = world.LoadSprite("assets/Outline/SelectionOutline.vox");
 			unitOutline = world.LoadSprite("assets/Outline/UnitOutline.vox");
-		}
-	};
-
-	struct Terrain
-	{
-		uint grass;
-		uint sea;
-		uint qG;
-		uint city;
-		uint forest;
-		uint mountainLow;
-		uint mountainHigh;
-		uint airport;
-		uint base;
-		uint beachOuterCorner;
-		uint beachInnerCorner;
-		uint beach;
-		uint bridge;
-		uint river;
-		uint roadCorner;
-		uint road;
-
-		void Init(World& world)
-		{
-			grass = world.LoadSprite("assets/Terrain/TanksAndWar_Source-0-Grass.vox");
-			sea = world.LoadSprite("assets/Terrain/TanksAndWar_Source-1-Sea.vox");
-			qG = world.LoadSprite("assets/Terrain/TanksAndWar_Source-2-QG.vox");
-			city = world.LoadSprite("assets/Terrain/TanksAndWar_Source-3-City.vox");
-			forest = world.LoadSprite("assets/Terrain/TanksAndWar_Source-4-Forest.vox");
-			mountainLow = world.LoadSprite("assets/Terrain/TanksAndWar_Source-5-Mountain_Low.vox");
-			mountainHigh = world.LoadSprite("assets/Terrain/TanksAndWar_Source-6-Mountain_High.vox");
-			airport = world.LoadSprite("assets/Terrain/TanksAndWar_Source-7-Airport.vox");
-			base = world.LoadSprite("assets/Terrain/TanksAndWar_Source-8-Base.vox");
-			beachOuterCorner = world.LoadSprite("assets/Terrain/TanksAndWar_Source-9-Beach_OuterCorner.vox");
-			beachInnerCorner = world.LoadSprite("assets/Terrain/TanksAndWar_Source-10-Beach_InnerCorner.vox");
-			beach = world.LoadSprite("assets/Terrain/TanksAndWar_Source-11-Beach.vox");
-			bridge = world.LoadSprite("assets/Terrain/TanksAndWar_Source-12-Bridge.vox");
-			river = world.LoadSprite("assets/Terrain/TanksAndWar_Source-13-River.vox");
-			roadCorner = world.LoadSprite("assets/Terrain/TanksAndWar_Source-14-Road_Corner.vox");
-			road = world.LoadSprite("assets/Terrain/TanksAndWar_Source-15-Road.vox");
 		}
 	};
 
@@ -162,6 +124,5 @@ namespace Tmpl8
 	auto filterPlayer2 = flecs::filter(ecs)
 		.include<Player2>()
 		.include_kind(flecs::MatchAll);
-
 
 }
