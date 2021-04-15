@@ -545,12 +545,23 @@ inline float4 operator/( float4 a, float b ) { return make_float4( a.x / b, a.y 
 inline void operator/=( float4& a, float b ) { a.x /= b;	a.y /= b;	a.z /= b;	a.w /= b; }
 inline float4 operator/( float b, float4 a ) { return make_float4( b / a.x, b / a.y, b / a.z, b / a.w ); }
 
+
 inline bool operator == (const float3 first, const float3 second)
 {
 	return first.x == second.x && first.y == second.y && first.z == second.z;
 }
 
 inline bool operator != (const float3 first, const float3 second)
+{
+	return !(first == second);
+}
+
+inline bool operator == (const int2 first, const int2 second)
+{
+	return first.x == second.x && first.y == second.y;
+}
+
+inline bool operator != (const int2 first, const int2 second)
 {
 	return !(first == second);
 }
@@ -689,6 +700,28 @@ inline float2 RotateVector2(float2 startVector, float angle)
 
 	return endVector;
 }
+
+inline int2 IndexToGridPos(const int index, const float mapX)
+{
+	int x = floor(index / mapX);
+	int y = index - (x * mapX);
+	return make_int2(x, y);
+}
+inline int GridPosToIndex(const int2 gridPos, const float mapX)
+{
+	return gridPos.x * mapX + gridPos.y;
+}
+inline int2 GetIndexes(const float3 entityPos)
+{
+	float3 enityPosNotRounded = entityPos / 16.0f;
+	int3 roundedEntityPos = make_int3(round(enityPosNotRounded.x), round(enityPosNotRounded.y), round(enityPosNotRounded.z));
+	roundedEntityPos *= 16;
+
+	return make_int2((roundedEntityPos.x / 16.0f) - 10, (roundedEntityPos.z / 16.0f) - 10);
+}
+
+inline bool operator<(const int2& first, const int2& second) { return length(make_float2(first)) < length(make_float2(second)); }
+
 
 // axis aligned bounding box class
 class aabb

@@ -430,7 +430,12 @@ uint World::LoadSprite( const char* voxFile )
 			int dummy[8192]; // we are not supporting materials for now.
 			fread( dummy, 1, header.N, file );
 		}
-		else break; // FatalError( "LoadSprite( %s ):\nUnknown chunk.", voxFile );
+		else
+		{
+			// digest unsupported chunk
+			int dummy[8192];
+			fread(dummy, 1, header.N, file);
+		}
 	}
 	fclose( file );
 	// finalize new sprite

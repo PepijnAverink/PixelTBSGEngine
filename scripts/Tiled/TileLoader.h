@@ -25,17 +25,19 @@ namespace Tmpl8
     public:
         void Init();
         Grid LoadTile(string filePath);
-		uint GetID(string name);
-		TileType GetTileType(int ID);
-		int GetHeight(int ID);
-        Grid grid;
 		vector<int> GetHeightMap() { return heightMap; };
-
-
+		vector<int> GetCostField() { return costField; };
+		uint GetID(string name);
+        Grid grid;
 
 	private:
+		TileType GetTileType(int ID);
+		int GetHeight(int ID);
+		int GetCost(int ID);
+
 		vector<int> heightMap;
-		uint terrain[42];
+		vector<int> costField;
+		uint terrain[36];
 
 		set<int> buildingIDs =
 		{
@@ -55,21 +57,55 @@ namespace Tmpl8
 
 		set<int> firstHeight =
 		{
-			34,
-			35,
-			36,
-			37
+			34
 		};
 
 		set<int> secondHeight =
 		{
-			38,
-			39,
-			40,
-			41
+			35
 		};
 
-		string terrainNames[42] =
+		map<int, int> terrainCost =
+		{
+			{ 0, 1 },
+			{ 1, 1 },
+			{ 2, 1 },
+			{ 3, 255 },
+			{ 4, 255 },
+			{ 5, 255 },
+			{ 6, 255 },
+			{ 7, 1 },
+			{ 8, 1 },
+			{ 9, 1 },
+			{ 10, 255 },
+			{ 11, 255 },
+			{ 12, 255 },
+			{ 13, 255 },
+			{ 14, 1 },
+			{ 15, 1 },
+			{ 16, 1 },
+			{ 17, 255 },
+			{ 18, 255 },
+			{ 19, 255 },
+			{ 20, 255 },
+			{ 21, 255 },
+			{ 22, 255 },
+			{ 23, 255 },
+			{ 24, 255 },
+			{ 25, 255 },
+			{ 26, 255 },
+			{ 27, 255 },
+			{ 28, 255 },
+			{ 29, 255 },
+			{ 30, 255 },
+			{ 31, 255 },
+			{ 32, 255 },
+			{ 33, 1 },
+			{ 34, 1 },
+			{ 35, 1 }
+		};
+
+		string terrainNames[36] =
 		{
 			"Road_Corner_180",
 			"Road_90",
@@ -105,14 +141,8 @@ namespace Tmpl8
 			"River",
 			"Forest",
 			"Bridge",
-			"GrassSlope_270",
-			"GrassSlope",
-			"GrassSlope_90",
-			"GrassSlope_180",
-			"GrassSlope_Second_270",
-			"GrassSlope_Second",
-			"GrassSlope_Second_90",
-			"GrassSlope_Second_180",
+			"Grass_Height1",
+			"Grass_Height2",
 		};
     };
 }

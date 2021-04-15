@@ -22,11 +22,14 @@ void MyGame::Init()
 	}
 
 	AddComponentsToFlecsWorld();
-	
 	tileLoader.LoadTile("assets/Maps/FirstMap.json");
 	heightMap = tileLoader.GetHeightMap();
+	mapSize = make_int2(tileLoader.grid.width, tileLoader.grid.height);
 	SpawnWorld();
-	SpawnTank(units.recon, 1, { 370,16,370 });
+	SpawnTank(units.recon, 1, { 368,16,368 });
+	SpawnTank(units.recon, 1, { 384,16,384 });
+	SpawnTank(units.recon, 1, { 400,16,400 });
+	SpawnTank(units.recon, 1, { 416,16,416 });
 
 	SpawnEntity(units.aAirMissile, 2, { 390,16,210 });
 	SpawnEntity(units.aAirMissile, 2, { 210,16,390 });
@@ -34,20 +37,26 @@ void MyGame::Init()
 
 	camera = Camera();
 	camera.SetPositionAndLookat(make_float3(500, 128, 500), make_float3(300, 1, 300));
+
+	pathfinder.SetCostField(tileLoader.GetCostField());
+	pathfinder.SetMapSize(make_int2(tileLoader.grid.width, tileLoader.grid.height));
 }
 
 void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 {
 	ecs.component<MoveLocation>();
+	ecs.component<MovePathFinding>();
 	ecs.component<MoveAttack>();
 	ecs.component<Rotation>();
 	ecs.component<Player1>();
 	ecs.component<Player2>();
 	ecs.component<Dead>();
+	ecs.system<MovePathFinding>("MoveEntityOverPath").each(GameplayFunctions::MoveUnitWithPath);
+	ecs.system<MovePathFinding>("OnMoveEntityOverPathStart").kind(flecs::OnSet).each(GameplayFunctions::SetNewPathTarget);
 	ecs.system<MoveLocation>("MoveEntity").each(GameplayFunctions::MoveEntity);
-	ecs.system<MoveLocation>("OnMoveStart").kind(flecs::Disabled).each(GameplayFunctions::OnMoveStart);
+	ecs.system<MoveLocation>("OnMoveStart").kind(flecs::OnSet).each(GameplayFunctions::OnMoveStart);
 	ecs.system<MoveAttack>("MoveAttackEntity").each(GameplayFunctions::MoveAttackEntity);
-	ecs.system<Rotation>("OnRotationStart").kind(flecs::Disabled).each(GameplayFunctions::OnRotationStart);
+	ecs.system<Rotation>("OnRotationStart").kind(flecs::OnSet).each(GameplayFunctions::OnRotationStart);
 	ecs.system<Rotation>("RotateEntity").each(GameplayFunctions::RotateEntity);
 	ecs.system<WeaponData>("WeaponUpdate").each(GameplayFunctions::WeaponUpdate);
 	ecs.system<ShotObjectData>("MoveShotObject").each(GameplayFunctions::MoveShotObject);
@@ -55,9 +64,6 @@ void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 
 void Tmpl8::MyGame::SpawnWorld()
 {
-	uint spriteSize = 20;
-	uint3 startPos{ 210,1,210 };
-	grid = vector<uint>();
 	for (int i = 0; i < tileLoader.grid.height; ++i)
 	{
 		for (int ii = 0; ii < tileLoader.grid.width; ++ii)
@@ -78,13 +84,14 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 		case TileType::Setdress:
 		case TileType::Building:
 		{
-			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), (indexes.y + 1) *16, indexes.z * 16 + (10 * 16));
+			int height = heightMap[GridPosToIndex(make_int2(indexes.x,indexes.z), mapSize.x)];
+			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), ((indexes.y + 1) *16) + height, indexes.z * 16 + (10 * 16));
 
 			world->DrawBigTile(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
 
 			uint spriteID = world->CloneSprite(tileData.tile);
 			world->MoveSpriteTo(spriteID, spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
-			world->SetSpritePivot(spriteID, 10, 0, 10);
+			world->SetSpritePivot(spriteID, 8, 0, 8);
 			world->RotateSprite(spriteID, 0, 1, 0, DegreesToRadians(tileData.rotation));
 			break;
 		}
@@ -94,8 +101,6 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 			break;
 		}
 		}
-
-		//grid.push_back(entity.id());
 	}
 }
 
@@ -292,6 +297,16 @@ void Tmpl8::MyGame::SetUnitMoveLocationAndRotation(float3 target, flecs::entity&
 	unit.modified<Rotation>();
 }
 
+void Tmpl8::MyGame::SetUnitMovePath(float3 target, flecs::entity& unit)
+{
+	unit.enable<MovePathFinding>();
+	MovePathFinding* movePathFinding = unit.get_mut<MovePathFinding>();
+	movePathFinding->target = target;
+	movePathFinding->flowField = pathfinder.GetFlowFlield(GetIndexes(target));
+	movePathFinding->reachedTarget = false;
+	unit.modified<MovePathFinding>();
+}
+
 void Tmpl8::MyGame::SetUnitAttackTarget(uint target, flecs::entity& unit)
 {
 	if (unit.has<MoveAttack>())
@@ -314,7 +329,7 @@ void Tmpl8::MyGame::SetSelectedTanksMoveLocation(float3 target)
 	for (uint unit : selectedUnits)
 	{	
 		ecs.entity(unit).disable<MoveAttack>();
-		SetUnitMoveLocationAndRotation(newTarget, ecs.entity(unit));
+		SetUnitMovePath(newTarget, ecs.entity(unit));
 	}
 }
 
@@ -379,25 +394,11 @@ vector<uint> Tmpl8::MyGame::GetFriendlyUnitInArea(float3 start, float3 end)
 	return friendlyUnitsInArea;
 }
 
-
-bool Tmpl8::MyGame::IsMoveableTerrain(uint terrainID)
-{
-	for (auto terrain : grid)
-	{
-		if (terrain == terrainID)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 bool Tmpl8::MyGame::IsEnemyUnit(uint enemyID)
 {
-	for (auto it : ecs.filter(filterPlayer2))
+	for (auto& it : ecs.filter(filterPlayer2))
 	{
-		for (auto index : it)
+		for (auto& index : it)
 		{
 			if (it.entity(index).id() == enemyID)
 			{
@@ -434,7 +435,9 @@ flecs::entity Tmpl8::MyGame::SpawnTank(uint unit, int playerID, float3 location)
 		.set<Rotation>({0,300,0})
 		.disable< Rotation>()
 		.add<WeaponData>()
-		.set<WeaponData>({ 0, 100,120,100,0,units.bazooka,0,5,0,100 });
+		.set<WeaponData>({ 0, 100,120,100,0,units.bazooka,0,5,0,100 })
+		.add<MovePathFinding>()
+		.disable<MovePathFinding>();
 
 	return currentUnit;
 }

@@ -5,6 +5,8 @@ namespace Tmpl8
 
 	flecs::world ecs;
 	vector<int> heightMap;
+	vector<int> costField;
+	int2 mapSize;
 
 	struct Units
 	{
@@ -70,6 +72,13 @@ namespace Tmpl8
 		float currentRotation;
 		float speed;
 		float target;
+		bool reachedTarget;
+	};
+
+	struct MovePathFinding
+	{
+		float3 target;
+		const vector<int>* flowField;
 		bool reachedTarget;
 	};
 

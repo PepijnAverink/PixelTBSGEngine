@@ -47,6 +47,7 @@ Grid TileLoader::LoadTile(string filePath)
         grid.width = map->getSize().x;
         grid.height = map->getSize().y;
         heightMap = vector<int>(map->getSize().x * map->getSize().y);
+        costField = vector<int>(map->getSize().x * map->getSize().y);
         for (auto& terrainLayer : map->getLayers())
         {
             int index = 0;
@@ -67,6 +68,7 @@ Grid TileLoader::LoadTile(string filePath)
                     ID -= 1;
                     tileData.tile = terrain[ID];
                     tileData.tileType = GetTileType(ID);
+                    costField[index] = GetCost(ID);
                     if (terrainLayer.getName() == "Tile Layer 2")
                     {
                         heightMap[index] = GetHeight(ID);
@@ -80,6 +82,7 @@ Grid TileLoader::LoadTile(string filePath)
                 {
                     grid.tiledatasLayer2.push_back(tileData);
                 }
+
                 index++;
             }
         }
@@ -117,12 +120,17 @@ int Tmpl8::TileLoader::GetHeight(int ID)
 {
     if (firstHeight.find(ID) != firstHeight.end())
     {
-        return 1;
+        return 2;
     }
     else if (secondHeight.find(ID) != secondHeight.end())
     {
-        return 2;
+        return 4;
     }
 
-    return 3;
+    return 0;
+}
+
+int Tmpl8::TileLoader::GetCost(int ID)
+{
+    return terrainCost[ID];
 }

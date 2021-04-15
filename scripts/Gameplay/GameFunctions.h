@@ -61,50 +61,11 @@ void OnMoveStart(const flecs::entity entity, MoveLocation& moveData)
 	moveData.reachedTarget = false;
 }
 
-void UnitHeight(const flecs::entity entity, float3 entityPos, float3 dir)
+void UnitHeight(const flecs::entity entity, float3 entityPos)
 {
-	World* world = GetWorld();
-
-
-	float3 enityPosNotRounded = entityPos / 16.0f;
-	int3 roundedEntityPos = make_int3(round(enityPosNotRounded.x), round(enityPosNotRounded.y), round(enityPosNotRounded.z));
-	roundedEntityPos *= 16;
-
-	int2 indexes = make_int2((roundedEntityPos.x / 16.0f) - 10, (roundedEntityPos.z / 16.0f) - 10);
-	int currentTileHeight = heightMap[indexes.x * 32 + indexes.y];
-
-	if (currentTileHeight == 3)
-	{
-		world->MoveSpriteTo(entity.id(), entityPos.x, 32, entityPos.z);
-		return;
-	}
-	else if (currentTileHeight == 0)
-	{
-		world->MoveSpriteTo(entity.id(), entityPos.x, 16, entityPos.z);
-		return;
-	}
-	int targetTileHeight = heightMap[(indexes.x + dir.x) * 32 + (indexes.y + dir.z)];
-	
-	if (currentTileHeight == targetTileHeight)
-	{
-		world->MoveSpriteTo(entity.id(), entityPos.x, ((currentTileHeight - 1) * 8) + 16, entityPos.z);
-		return;
-	}
-
-	float3 diff = entityPos - (roundedEntityPos + (dir * 8));
-	float heightDiffProcent = clamp(abs(round(length(diff))) / 16.0f, 0.0f, 1.0f);
-
-
-	float yPos = 0;
-	if (targetTileHeight < currentTileHeight)
-	{
-		yPos = ((heightDiffProcent + currentTileHeight - 1) * 8) + 16;
-	}
-	else
-	{
-		yPos = (((1 - heightDiffProcent) + currentTileHeight - 1) * 8) + 16;
-	}
-	world->MoveSpriteTo(entity.id(), entityPos.x, yPos, entityPos.z);
+	int2 indexes = GetIndexes(entityPos);
+	int currentTileHeight = heightMap[GridPosToIndex(indexes,mapSize.x)];
+	GetWorld()->MoveSpriteTo(entity.id(), entityPos.x, 16 + currentTileHeight, entityPos.z);
 }
 
 
@@ -133,15 +94,15 @@ void MoveEntity(const flecs::entity entity, MoveLocation& moveData) {
 
 		moveData.currentPos += dir * change;
 		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
-		UnitHeight(entity, moveData.currentPos, dir);
+		UnitHeight(entity, moveData.currentPos);
 	}
 	else
 	{
 		moveData.currentPos = moveData.target;
 		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
-		UnitHeight(entity, moveData.currentPos, make_float3(0,0,0));
+		UnitHeight(entity, moveData.currentPos);
 		moveData.reachedTarget = true;
-		entity.disable<MoveLocation>();
+		//entity.disable<MoveLocation>();
 	}
 }
 
@@ -169,6 +130,47 @@ void MoveAttackEntity(const flecs::entity entity, MoveAttack& moveAttack)
 	{
 		entity.disable<MoveAttack>();
 		return;
+	}
+}
+
+void SetNewPathTarget(const flecs::entity entity, MovePathFinding& movePathFinding)
+{
+	MoveLocation* moveLocation = entity.get_mut<MoveLocation>();
+	int2 gridPos = GetIndexes(moveLocation->currentPos);
+	int targetIndex = (*movePathFinding.flowField)[GridPosToIndex(gridPos, mapSize.x)];
+	int2 newTargetGridPos = IndexToGridPos(targetIndex, mapSize.x);
+	float3 newTarget = make_float3((newTargetGridPos.x + 10) * 16, movePathFinding.target.y, (newTargetGridPos.y + 10) * 16);
+	if (newTarget == movePathFinding.target)
+	{
+		movePathFinding.reachedTarget = true;
+		entity.disable<MovePathFinding>();
+		return;
+	}
+
+	entity.enable<MoveLocation>();
+	moveLocation->target = newTarget;
+	moveLocation->reachedTarget = false;
+	entity.modified<MoveLocation>();
+
+	//Rotation
+	entity.enable<Rotation>();
+	float3 dir = normalize(moveLocation->target - moveLocation->currentPos);
+	float targetRot = atan2(dir.z, dir.x);
+	Rotation* rotation = entity.get_mut<Rotation>();
+	rotation->target = RadiansToDegrees(targetRot);
+	rotation->reachedTarget = false;
+	entity.modified<Rotation>();
+}
+
+
+void MoveUnitWithPath(const flecs::entity entity, MovePathFinding& movePathFinding)
+{
+
+	flecs::ref<MoveLocation> moveLocationRef = entity.get_ref<MoveLocation>();
+
+	if (moveLocationRef->reachedTarget)
+	{
+		SetNewPathTarget(entity, movePathFinding);
 	}
 }
 

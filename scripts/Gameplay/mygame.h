@@ -2,8 +2,11 @@
 #include "flecs.h"
 #include "GameData.h"
 #include <vector>
+#include <queue>
 #include "Camera.h"
 #include "scripts\Tiled\TileLoader.h"
+#include "Pathfinder.h"
+
 namespace Tmpl8
 {
 class MyGame : public Game
@@ -34,13 +37,13 @@ public:
 	//GameplayFunctions
 	void SetUnitMoveLocation(float3 target,flecs::entity& unit);
 	void SetUnitMoveLocationAndRotation(float3 target,flecs::entity& unit);
+	void SetUnitMovePath(float3 target,flecs::entity& unit);
 	void SetUnitAttackTarget(uint target,flecs::entity& unit);
 	void SetSelectedTanksMoveLocation(float3 target);
 	void SetSelectedTanksAttackTarget(uint target);
 	void SetOutlineSelectedUnits();
 	vector <uint> GetFriendlyUnitInArea(float3 start, float3 end);
 	bool IsFriendlyUnit(uint unitID);
-	bool IsMoveableTerrain(uint terrainID);
 	bool IsEnemyUnit(uint enemyID);
 
 	
@@ -54,11 +57,7 @@ private:
 	uint outlineSprties[20];
 	BindingUnits unitBindings[10];
 	Camera camera;
-
-	vector<uint> grid;
-	uint index = 0;
 	
-	//Sprites aka voxels
 	Units units;
 	TileLoader tileLoader;
 	Outlines outlines;
@@ -68,6 +67,9 @@ private:
 	//Selecting Units
 	float3 startPos;
 	bool keys[350];
+
+	//Pathfinding
+	Pathfinder pathfinder;
 };
 
 } // namespace Tmpl8

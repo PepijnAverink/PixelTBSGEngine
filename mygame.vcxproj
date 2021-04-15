@@ -123,6 +123,7 @@
   <ItemGroup>
     <ClCompile Include="scripts\Gameplay\Camera.cpp" />
     <ClCompile Include="scripts\Gameplay\mygame.cpp" />
+    <ClCompile Include="scripts\Gameplay\Pathfinder.cpp" />
     <ClCompile Include="scripts\Imgui\imgui.cpp" />
     <ClCompile Include="scripts\Imgui\imgui_demo.cpp" />
     <ClCompile Include="scripts\Imgui\imgui_draw.cpp" />
@@ -147,6 +148,7 @@
     <ClInclude Include="scripts\Gameplay\GameData.h" />
     <ClInclude Include="scripts\Gameplay\GameFunctions.h" />
     <ClInclude Include="scripts\Gameplay\mygame.h" />
+    <ClInclude Include="scripts\Gameplay\Pathfinder.h" />
     <ClInclude Include="scripts\Imgui\imconfig.h" />
     <ClInclude Include="scripts\Imgui\imgui.h" />
     <ClInclude Include="scripts\Imgui\imgui_impl_glfw.h" />

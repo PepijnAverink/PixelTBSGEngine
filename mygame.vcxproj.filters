@@ -17,6 +17,7 @@
     <ClCompile Include="scripts\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="scripts\Gameplay\Camera.cpp" />
     <ClCompile Include="scripts\Tiled\TileLoader.cpp" />
+    <ClCompile Include="scripts\Gameplay\Pathfinder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\bluenoise.h">
@@ -47,6 +48,7 @@
     <ClInclude Include="scripts\Gameplay\GameFunctions.h" />
     <ClInclude Include="scripts\Gameplay\Camera.h" />
     <ClInclude Include="scripts\Tiled\TileLoader.h" />
+    <ClInclude Include="scripts\Gameplay\Pathfinder.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cl\kernels.cl">
