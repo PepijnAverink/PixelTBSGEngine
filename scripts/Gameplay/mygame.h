@@ -9,6 +9,8 @@
 
 namespace Tmpl8
 {
+	static Pathfinder pathfinder;
+
 class MyGame : public Game
 {
 public:
@@ -33,12 +35,11 @@ public:
 	uint HandleMouseRaycastingTopDown(float3 pos);
 	float3 GetMousePosInWorld();
 
-
 	//GameplayFunctions
 	void SetUnitMoveLocation(float3 target,flecs::entity& unit);
 	void SetUnitMoveLocationAndRotation(float3 target,flecs::entity& unit);
-	void SetUnitMovePath(float3 target,flecs::entity& unit);
-	void SetUnitAttackTarget(uint target,flecs::entity& unit);
+	void SetUnitMovePath(float3 target,uint unit);
+	void SetUnitAttackTarget(uint target,uint unit);
 	void SetSelectedTanksMoveLocation(float3 target);
 	void SetSelectedTanksAttackTarget(uint target);
 	void SetOutlineSelectedUnits();
@@ -67,9 +68,6 @@ private:
 	//Selecting Units
 	float3 startPos;
 	bool keys[350];
-
-	//Pathfinding
-	Pathfinder pathfinder;
 };
 
 } // namespace Tmpl8

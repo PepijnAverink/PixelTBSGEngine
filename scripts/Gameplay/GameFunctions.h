@@ -7,61 +7,38 @@ namespace Tmpl8
 
 namespace GameplayFunctions
 {
-
-	void OnRotationStart(const flecs::entity entity, Rotation& rotation)
+	void RotateEntity(const flecs::entity& entity, Rotation& rotation)
 	{
-		rotation.reachedTarget = false;
-	}
-
-	void RotateEntity(const flecs::entity entity, Rotation& rotation)
-	{
-		float diff = rotation.currentRotation - rotation.target;
-
-		float modifier = 0;
-		if (diff > 0)
+		if (!rotation.reachedTarget)
 		{
-			modifier = abs(diff) < 180 ? -1 : 1;
-		}
-		else
-		{
-			modifier = abs(diff) < 180 ? 1 : -1;
-		}
+			float diff = rotation.currentRotation - rotation.target;
+			float modifier = diff > 0 ? abs(diff) < 180 ? -1 : 1 : abs(diff) < 180 ? 1 : -1;
+			float change = rotation.speed * entity.delta_time();
+			World* world = GetWorld();
 
-		float change = rotation.speed * entity.delta_time();
-		World* world = GetWorld();
-		
-		if (abs(diff) > change)
-		{	
-			rotation.currentRotation += change * modifier;
-
-			if (rotation.currentRotation >= 180)
+			if (abs(diff) > change)
 			{
-				rotation.currentRotation = -180;
+				rotation.currentRotation += change * modifier;
+
+				if (rotation.currentRotation >= 180)
+				{
+					rotation.currentRotation = -180;
+				}
+				else if (rotation.currentRotation <= -180)
+				{
+					rotation.currentRotation = 180;
+				}
 			}
-			else if(rotation.currentRotation <= -180)
+			else
 			{
-				rotation.currentRotation = 180;
+				rotation.currentRotation = rotation.target;
+				rotation.reachedTarget = true;
 			}
-
-
 			world->RotateSprite(entity.id(), 0, 1, 0, DegreesToRadians(rotation.currentRotation));
 		}
-		else
-		{
-			rotation.currentRotation = rotation.target;
-			world->RotateSprite(entity.id(), 0, 1, 0, DegreesToRadians(rotation.target));
-			rotation.reachedTarget = true;
-			entity.disable<Rotation>();
-		}
 	}
 
-
-void OnMoveStart(const flecs::entity entity, MoveLocation& moveData)
-{
-	moveData.reachedTarget = false;
-}
-
-void UnitHeight(const flecs::entity entity, float3 entityPos)
+void UnitHeight(const flecs::entity& entity, float3 entityPos)
 {
 	int2 indexes = GetIndexes(entityPos);
 	int currentTileHeight = heightMap[GridPosToIndex(indexes,mapSize.x)];
@@ -69,16 +46,12 @@ void UnitHeight(const flecs::entity entity, float3 entityPos)
 }
 
 
-void MoveEntity(const flecs::entity entity, MoveLocation& moveData) {
+void MoveEntity(const flecs::entity& entity, MoveLocation& moveData) {
 
-	float dist = abs(length(moveData.target - moveData.currentPos));
-	float change = moveData.speed * entity.delta_time();
-	if (dist > change)
+	if (!moveData.reachedTarget)
 	{
 		World* world = GetWorld();
-		float3 dir = normalize(moveData.target - moveData.currentPos);
-
-		if (entity.has< Rotation>())
+		if (entity.has<Rotation>())
 		{
 			if (!entity.get<Rotation>()->reachedTarget)
 			{
@@ -87,90 +60,108 @@ void MoveEntity(const flecs::entity entity, MoveLocation& moveData) {
 		}
 		else
 		{
+			float3 dir = normalize(moveData.targetPos - moveData.startPos);
 			float targetRot = atan2(dir.z, dir.x);
 			world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
 		}
-
-
-		moveData.currentPos += dir * change;
-		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
+		float dist = abs(length(moveData.targetPos - moveData.startPos));
+		//std::cout << to_string(entity.delta_time()) << std::endl;
+		moveData.progress += (moveData.speed * entity.delta_time() / (dist * 0.01f));
+		if (moveData.progress > 1)
+		{
+			moveData.progress = 1;
+			moveData.reachedTarget = true;
+		}
+		moveData.currentPos = lerp(moveData.startPos, moveData.targetPos, moveData.progress);
 		UnitHeight(entity, moveData.currentPos);
-	}
-	else
-	{
-		moveData.currentPos = moveData.target;
 		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
-		UnitHeight(entity, moveData.currentPos);
-		moveData.reachedTarget = true;
-		//entity.disable<MoveLocation>();
 	}
 }
 
-void MoveAttackEntity(const flecs::entity entity, MoveAttack& moveAttack)
+void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 {
-	if (entity.has<MoveLocation>() && !ecs.entity(moveAttack.target).has<Dead>())
+	if (moveAttack.target != 0)
 	{
-		World* world = GetWorld();
-		MoveLocation* moveLocation = entity.get_mut<MoveLocation>();
-		float3 target = make_float3(world->sprite[moveAttack.target]->currPos);
-		float dist = abs(length(target - moveLocation->currentPos));
-		if (dist <= moveAttack.shootingRange)
+		if (entity.has<MoveLocation>() && !ecs.entity(moveAttack.target).has<Dead>())
 		{
-			entity.disable<MoveAttack>().disable<MoveLocation>();
-			return;
+			World* world = GetWorld();
+			const MoveLocation* moveLocation = entity.get<MoveLocation>();
+			float3 target = make_float3(world->sprite[moveAttack.target]->currPos);
+			float dist = abs(length(target - moveLocation->currentPos));
+			if (dist > moveAttack.shootingRange)
+			{
+				//recalculate point to go
+				int3 indexes = make_int3(round(target.x / 16), 0, round(target.z / 16));
+				float3 newTarget = make_float3(indexes.x * 16, target.y, indexes.z * 16);
+				MovePathFinding* movePathFinding = entity.get_mut<MovePathFinding>();
+				if (movePathFinding->target != newTarget)
+				{
+					movePathFinding->target = newTarget;
+					movePathFinding->reachedTarget = false;
+					entity.modified<MovePathFinding>();
+				}
+				return;
+			}
+			moveAttack.target = 0;
 		}
-		entity.enable<MoveLocation>();
-		if (moveLocation->target != target)
-		{
-			moveLocation->target = target;
-			entity.modified<MoveLocation>();
-		}
-	}
-	else
-	{
-		entity.disable<MoveAttack>();
-		return;
 	}
 }
 
-void SetNewPathTarget(const flecs::entity entity, MovePathFinding& movePathFinding)
+void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFinding)
 {
 	MoveLocation* moveLocation = entity.get_mut<MoveLocation>();
-	int2 gridPos = GetIndexes(moveLocation->currentPos);
-	int targetIndex = (*movePathFinding.flowField)[GridPosToIndex(gridPos, mapSize.x)];
-	int2 newTargetGridPos = IndexToGridPos(targetIndex, mapSize.x);
-	float3 newTarget = make_float3((newTargetGridPos.x + 10) * 16, movePathFinding.target.y, (newTargetGridPos.y + 10) * 16);
-	if (newTarget == movePathFinding.target)
+	if (!movePathFinding.reachedTarget && moveLocation->reachedTarget)
 	{
-		movePathFinding.reachedTarget = true;
-		entity.disable<MovePathFinding>();
-		return;
-	}
+		if (!movePathFinding.setOldPosUnitCost)
+		{
+			pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(movePathFinding.oldPos), mapSize.x));
+			movePathFinding.setOldPosUnitCost = true;
+		}
+		if (make_int3(moveLocation->currentPos) == make_int3(movePathFinding.target))
+		{
+			pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
+			movePathFinding.reachedTarget = true;
+			return;
+		}
+		pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
+		movePathFinding.flowField = pathfinder.GetFlowFlield(GetIndexes(movePathFinding.target));
+		int targetIndex = movePathFinding.flowField[GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x)];
+		pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x), 10);
 
-	entity.enable<MoveLocation>();
-	moveLocation->target = newTarget;
-	moveLocation->reachedTarget = false;
-	entity.modified<MoveLocation>();
+		if (targetIndex > 0)
+		{
+			int2 newTargetGridPos = IndexToGridPos(targetIndex, mapSize.x);
+			float3 newTarget = make_float3((newTargetGridPos.x + 10) * 16, movePathFinding.target.y, (newTargetGridPos.y + 10) * 16);
+			if (pathfinder.unitField[GridPosToIndex(GetIndexes(newTarget), mapSize.x)] < 5)
+			{
+				pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(newTarget), mapSize.x), 10);
+				movePathFinding.oldPos = moveLocation->currentPos;
+				movePathFinding.setOldPosUnitCost = false;
+				moveLocation->startPos = moveLocation->currentPos;
+				moveLocation->targetPos = newTarget;
+				moveLocation->reachedTarget = false;
+				moveLocation->progress = 0;
+				entity.modified<MoveLocation>();
 
-	//Rotation
-	entity.enable<Rotation>();
-	float3 dir = normalize(moveLocation->target - moveLocation->currentPos);
-	float targetRot = atan2(dir.z, dir.x);
-	Rotation* rotation = entity.get_mut<Rotation>();
-	rotation->target = RadiansToDegrees(targetRot);
-	rotation->reachedTarget = false;
-	entity.modified<Rotation>();
-}
+				//Rotation
+				float3 dir = normalize(moveLocation->targetPos - moveLocation->startPos);
+				float targetRot = atan2(dir.z, dir.x);
+				Rotation* rotation = entity.get_mut<Rotation>();
+				rotation->target = RadiansToDegrees(targetRot);
+				rotation->reachedTarget = false;
+				entity.modified<Rotation>();
 
-
-void MoveUnitWithPath(const flecs::entity entity, MovePathFinding& movePathFinding)
-{
-
-	flecs::ref<MoveLocation> moveLocationRef = entity.get_ref<MoveLocation>();
-
-	if (moveLocationRef->reachedTarget)
-	{
-		SetNewPathTarget(entity, movePathFinding);
+				if (entity.has<ChildData>())
+				{
+					ChildData* childData = entity.get_mut<ChildData>();
+					flecs::entity child = ecs.entity(childData->childID);
+					Rotation* childRot = child.get_mut<Rotation>();
+					childRot->target = RadiansToDegrees(targetRot);
+					childRot->reachedTarget = false;
+					child.modified<Rotation>();
+				}
+			}
+		}
 	}
 }
 
@@ -185,6 +176,27 @@ void SpawnShotObject(const uint shootObject, const int3 location, const ShotObje
 	//cout << "Created Sprite: " + to_string(spriteID) << endl;
 }
 
+int GetTarget(float fireRange, int3 currentPos)
+{
+	for (auto it : ecs.filter(filterPlayer2))
+	{
+		for (auto index : it)
+		{
+			int enemyID = it.entity(index).id();
+			if (GetWorld()->sprite[enemyID] != nullptr)
+			{
+				int3 enemyPos = GetWorld()->sprite[enemyID]->currPos;
+				float dist = abs(length(make_float3(enemyPos - currentPos)));
+				if (dist < fireRange)
+				{
+					return enemyID;
+				}
+			}
+		}
+	}
+	return -1;
+}
+
 void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 {
 	if (weaponData.currentReloadTime > 0)
@@ -192,27 +204,45 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 		weaponData.currentReloadTime -= entity.delta_time();
 		return;
 	}
-
 	World* world = GetWorld();
-
 	int3 currentPos = world->sprite[entity.id()]->currPos;
+	int enemyID = GetTarget(weaponData.fireRange,currentPos);
+	
 
-	for (auto it : ecs.filter(filterPlayer2))
+	if (enemyID > world->sprite.size() || enemyID < 0)
 	{
-		for (auto index : it)
+		return;
+	}
+
+	int3 enemyPos = world->sprite[enemyID]->currPos;
+	if (entity.has< Rotation>())
+	{
+		float3 dir = normalize(make_float3(enemyPos - currentPos));
+		float targetRot = atan2(dir.z, dir.x);
+		Rotation* rotation = entity.get_mut<Rotation>();
+		if (RadiansToDegrees(targetRot) != rotation->target)
 		{
-			int3 enemyPos = world->sprite[it.entity(index).id()]->currPos;
-			float dist = abs(length(make_float3(enemyPos - currentPos)));
-			if (dist < weaponData.fireRange)
-			{
-				MoveLocation moveData{ make_float3(enemyPos),weaponData.shotObjectSpeed,make_float3(currentPos),false };
-				ShotObjectData shotObjectData{ moveData, it.entity(index).id(),weaponData.dmg };
-				SpawnShotObject(weaponData.shotObjectID, currentPos, shotObjectData);
-				weaponData.currentReloadTime = weaponData.reloadTime;
-				return;
-			}
+			rotation->target = RadiansToDegrees(targetRot);
+			rotation->reachedTarget = false;
+			entity.modified<Rotation>();
+			return;
+		}
+		else if (!entity.get<Rotation>()->reachedTarget)
+		{
+			return;
 		}
 	}
+	else
+	{
+		float3 dir = normalize(make_float3(enemyPos - currentPos));
+		float targetRot = atan2(dir.z, dir.x);
+		world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
+	}
+
+	MoveLocation moveData{ weaponData.shotObjectSpeed,make_float3(currentPos),make_float3(currentPos), make_float3(enemyPos),false,0 };
+	ShotObjectData shotObjectData{ moveData, enemyID,weaponData.dmg };
+	SpawnShotObject(weaponData.shotObjectID, currentPos, shotObjectData);
+	weaponData.currentReloadTime = weaponData.reloadTime;
 }
 
 
@@ -227,7 +257,6 @@ void MoveShotObject(const flecs::entity entity, ShotObjectData& shotObjectData)
 			target.add<Dead>();
 			GetWorld()->DisableSprite(entity.id());
 			entity.add<Dead>();
-			entity.disable<ShotObjectData>();
 			//cout << "Destory: " + to_string(entity.id()) << endl;
 		}
 		else
@@ -235,9 +264,15 @@ void MoveShotObject(const flecs::entity entity, ShotObjectData& shotObjectData)
 			MoveEntity(entity, shotObjectData.moveData);
 		}
 	}
-	else
+}
+
+void HandleChilds(const flecs::entity entity, ChildData& childData)
+{
+	int3 parentPos = GetWorld()->sprite[entity.id()]->currPos;
+	float3 newPos = parentPos + childData.offset;
+	if (make_int3(newPos) != GetWorld()->sprite[childData.childID]->currPos)
 	{
-		entity.disable<ShotObjectData>();
+		GetWorld()->MoveSpriteTo(childData.childID, newPos.x, newPos.y, newPos.z);
 	}
 }
 

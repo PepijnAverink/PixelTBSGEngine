@@ -5,7 +5,6 @@ namespace Tmpl8
 
 	flecs::world ecs;
 	vector<int> heightMap;
-	vector<int> costField;
 	int2 mapSize;
 
 	struct Units
@@ -23,6 +22,9 @@ namespace Tmpl8
 		uint head;
 		uint tankBottom1;
 		uint tankBottom2;
+		uint reconBottom;
+		uint reconTop;
+		uint bullet;
 
 
 		void Init(World& world)
@@ -40,6 +42,9 @@ namespace Tmpl8
 			head = world.LoadSprite("assets/Units/TanksAndWar_Source-16-Head.vox");
 			tankBottom1 = world.LoadSprite("assets/Units/TanksAndWar_Source-24-TankBottom1.vox");
 			tankBottom2 = world.LoadSprite("assets/Units/TanksAndWar_Source-36-TankBottom2.vox");
+			reconBottom = world.LoadSprite("assets/Units/TanksAndWar_Source-Recon-Bottom.vox");
+			reconTop = world.LoadSprite("assets/Units/TanksAndWar_Source-Recon-Top.vox");
+			bullet = world.LoadSprite("assets/Bullet.vox");
 		}
 
 	};
@@ -78,16 +83,20 @@ namespace Tmpl8
 	struct MovePathFinding
 	{
 		float3 target;
-		const vector<int>* flowField;
+		float3 oldPos;
 		bool reachedTarget;
+		bool setOldPosUnitCost;
+		vector<int> flowField;
 	};
 
 	struct MoveLocation
 	{
-		float3 target;
 		float speed;
+		float3 startPos;
 		float3 currentPos;
+		float3 targetPos;
 		bool reachedTarget;
+		float progress;
 	};
 
 	struct MoveAttack
@@ -106,8 +115,6 @@ namespace Tmpl8
 	struct WeaponData
 	{
 		float currentRot;
-		float speed;
-		float fireAngle;
 		float fireRange;
 		float dmg; //not in use now
 		uint shotObjectID;
@@ -115,6 +122,12 @@ namespace Tmpl8
 		float reloadTime;
 		float currentReloadTime;
 		float shotObjectSpeed;
+	};
+
+	struct ChildData
+	{
+		uint childID;
+		float3 offset;
 	};
 
 	//Tags

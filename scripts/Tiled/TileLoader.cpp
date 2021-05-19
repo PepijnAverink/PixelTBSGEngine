@@ -55,6 +55,7 @@ Grid TileLoader::LoadTile(string filePath)
             {
                 unsigned ID = obj;
                 TileData tileData = TileData();
+                tileData.tile = -1;
                 if (ID != 0)
                 {
                     tileData.rotation = 0;

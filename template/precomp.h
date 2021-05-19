@@ -566,6 +566,16 @@ inline bool operator != (const int2 first, const int2 second)
 	return !(first == second);
 }
 
+inline bool operator == (const int3 first, const int3 second)
+{
+	return first.x == second.x && first.y == second.y && first.z == second.z;
+}
+
+inline bool operator != (const int3 first, const int3 second)
+{
+	return !(first == second);
+}
+
 
 inline float2 fminf( float2 a, float2 b ) { return make_float2( fminf( a.x, b.x ), fminf( a.y, b.y ) ); }
 inline float3 fminf( float3 a, float3 b ) { return make_float3( fminf( a.x, b.x ), fminf( a.y, b.y ), fminf( a.z, b.z ) ); }
@@ -719,6 +729,12 @@ inline int2 GetIndexes(const float3 entityPos)
 
 	return make_int2((roundedEntityPos.x / 16.0f) - 10, (roundedEntityPos.z / 16.0f) - 10);
 }
+
+inline float2 GetEntityPos(const int2 Indexes)
+{
+	return make_float2((Indexes.x + 10) * 16, (Indexes.y + 10) * 16);
+}
+
 
 inline bool operator<(const int2& first, const int2& second) { return length(make_float2(first)) < length(make_float2(second)); }
 

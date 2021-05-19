@@ -7,7 +7,7 @@ namespace Tmpl8
 
 	struct TileData
 	{
-		uint tile;
+		int tile;
 		TileType tileType;
 		float rotation;
 	};
