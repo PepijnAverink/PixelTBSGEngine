@@ -46,23 +46,23 @@ vector<int> Tmpl8::Pathfinder::CalculateIntegrationField(const int2 target)
         int currentID = openList.front();
         openList.pop_front();
 
-        vector<int> neibors = GetNeibors(currentID);
+        vector<int> neibors = GetSquareNeibors(currentID);
 
         for (int currentNeiborID : neibors)
         {
             int neiborCost = costField[currentNeiborID] + unitField[currentNeiborID];
-            if (neiborCost < 255)
+            int endNodeCost = neiborCost + integrationField[currentID];
+            if (integrationField[currentNeiborID] > endNodeCost)
             {
-                int endNodeCost = neiborCost + integrationField[currentID];
-                if (integrationField[currentNeiborID] > endNodeCost)
+                if (!CheckIfContains(currentNeiborID, openList))
                 {
-                    if (!CheckIfContains(currentNeiborID, openList))
-                    {
-                        openList.push_back(currentNeiborID);
-                    }
+                    openList.push_back(currentNeiborID);
+                }
+                if (neiborCost < 255)
+                {
                     integrationField[currentNeiborID] = endNodeCost;
                 }
-            }
+            }      
         }
     }
 
@@ -250,7 +250,7 @@ const vector <float3> Tmpl8::Pathfinder::GetTargetsForUnit(float3 target, int in
     int numberOfTargets = 0;
     vector<int> searchTargets;
     int targetIndex = GridPosToIndex(indexes, mapSize.x);
-    if (costField[targetIndex] <= 255 && unitField[targetIndex] <= 255)
+    if (costField[targetIndex] < 255 && unitField[targetIndex] < 255)
     {
         float2 newPos = GetEntityPos(indexes);
         targets.push_back(make_float3(newPos.x,target.y, newPos.y));
@@ -269,7 +269,7 @@ const vector <float3> Tmpl8::Pathfinder::GetTargetsForUnit(float3 target, int in
 
             if (!CheckIfContains(neibors[ii], searchTargets))
             {
-                if (costField[neibors[ii]] <= 255 && unitField[targetIndex] <= 255)
+                if (costField[neibors[ii]] < 255 && unitField[neibors[ii]] < 255)
                 {
                     int2 gridPos = IndexToGridPos(neibors[ii], mapSize.x);
                     float2 newPos = GetEntityPos(gridPos);

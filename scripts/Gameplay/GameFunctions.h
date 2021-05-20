@@ -102,7 +102,9 @@ void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 				}
 				return;
 			}
+			MovePathFinding* movePathFinding = entity.get_mut<MovePathFinding>();
 			moveAttack.target = 0;
+			movePathFinding->target = moveLocation->targetPos;
 		}
 	}
 }
@@ -114,7 +116,7 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 	{
 		if (!movePathFinding.setOldPosUnitCost)
 		{
-			pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(movePathFinding.oldPos), mapSize.x));
+			//pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(movePathFinding.oldPos), mapSize.x));
 			movePathFinding.setOldPosUnitCost = true;
 		}
 		if (make_int3(moveLocation->currentPos) == make_int3(movePathFinding.target))
@@ -126,7 +128,7 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 		pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
 		movePathFinding.flowField = pathfinder.GetFlowFlield(GetIndexes(movePathFinding.target));
 		int targetIndex = movePathFinding.flowField[GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x)];
-		pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x), 10);
+		//pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x), 10);
 
 		if (targetIndex > 0)
 		{
@@ -263,6 +265,11 @@ void MoveShotObject(const flecs::entity entity, ShotObjectData& shotObjectData)
 		{
 			MoveEntity(entity, shotObjectData.moveData);
 		}
+	}
+	else
+	{
+		GetWorld()->DisableSprite(entity.id());
+		entity.add<Dead>();
 	}
 }
 
