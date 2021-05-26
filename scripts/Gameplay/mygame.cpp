@@ -67,7 +67,7 @@ void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 	ecs.system<MovePathFinding>("MoveEntityOverPath").kind(flecs::OnUpdate).each(GameplayFunctions::MoveUnitOverPath);
 	ecs.system<MoveAttack>("MoveAttackEntity").kind(flecs::OnUpdate).each(GameplayFunctions::MoveAttackEntity);
 	ecs.system<WeaponData>("WeaponUpdate").kind(flecs::OnUpdate).each(GameplayFunctions::WeaponUpdate);
-	ecs.system<ShotObjectData>("MoveShotObject").kind(flecs::OnUpdate).each(GameplayFunctions::MoveShotObject);
+	ecs.system<ShotObjectData>("MoveShotObject").kind(flecs::OnUpdate).each(GameplayFunctions::MoveTankBullet);
 	ecs.system<ChildData>("MoveChild").kind(flecs::OnUpdate).each(GameplayFunctions::HandleChilds);
 }
 
@@ -127,7 +127,8 @@ void MyGame::Tick(float deltaTime)
 
 	//Outline for selection
 	SetOutlineSelectedUnits();
-	//pathfinder.VisualizeUnitField();
+	pathfinder.VisualizeUnitField();
+	pathfinder.UpdateFlowfields(deltaTime);
 
 	float3 direction = make_float3((keys[GLFW_KEY_UP] || keys[GLFW_KEY_W]) - (keys[GLFW_KEY_DOWN] || keys[GLFW_KEY_S]), 0, (keys[GLFW_KEY_LEFT] || keys[GLFW_KEY_A]) - (keys[GLFW_KEY_RIGHT] || keys[GLFW_KEY_D]));
 	//float3 direction = make_float3((mousePos.y < 20 ? 1 : 0) - (mousePos.y > 700 ? 1 : 0), 0, (mousePos.x < 20 ? 1 : 0) - (mousePos.x > 1260 ? 1 : 0));
@@ -336,14 +337,11 @@ void Tmpl8::MyGame::SetUnitAttackTarget(uint target, uint unitID)
 
 void Tmpl8::MyGame::SetSelectedTanksMoveLocation(float3 target)
 {
-	const vector<float3> newTarget = pathfinder.GetTargetsForUnit(target, selectedUnits.size());
+	const vector<float3> newTarget = pathfinder.GetTargetsForUnit(target, 1);
 	for (int i = 0; i < selectedUnits.size();++i)
 	{	
 		//ecs.entity(selectedUnits[i]).disable<MoveAttack>();
-		if (i < newTarget.size())
-		{
-			SetUnitMovePath(newTarget[i], selectedUnits[i]);
-		}
+		SetUnitMovePath(newTarget[0], selectedUnits[i]);
 		//pathfinder.VisualizeFlowField(newTarget[i]);
 	}
 }
@@ -458,6 +456,7 @@ flecs::entity Tmpl8::MyGame::SpawnTank(uint unit, int playerID, float3 location)
 		.add< Rotation>()
 		.set<Rotation>({ 0,300,0,true })
 		.add<MovePathFinding>()
+		.set<MovePathFinding>({ location ,location ,true,true })
 		.add<ChildData>()
 		.set<ChildData>({ (uint)top.id(), offsetChild });
 

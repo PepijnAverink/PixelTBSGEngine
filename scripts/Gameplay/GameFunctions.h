@@ -40,8 +40,7 @@ namespace GameplayFunctions
 
 void UnitHeight(const flecs::entity& entity, float3 entityPos)
 {
-	int2 indexes = GetIndexes(entityPos);
-	int currentTileHeight = heightMap[GridPosToIndex(indexes,mapSize.x)];
+	int currentTileHeight = heightMap[GridPosToIndex(GetIndexes(entityPos),mapSize.x)];
 	GetWorld()->MoveSpriteTo(entity.id(), entityPos.x, 16 + currentTileHeight, entityPos.z);
 }
 
@@ -73,8 +72,32 @@ void MoveEntity(const flecs::entity& entity, MoveLocation& moveData) {
 			moveData.reachedTarget = true;
 		}
 		moveData.currentPos = lerp(moveData.startPos, moveData.targetPos, moveData.progress);
-		UnitHeight(entity, moveData.currentPos);
 		MoveSpriteTo(entity.id(), make_int3(moveData.currentPos));
+		UnitHeight(entity, moveData.currentPos);
+	}
+}
+
+void MoveCurveEntity(const flecs::entity& entity, MoveLocation& moveData) {
+
+	if (!moveData.reachedTarget)
+	{
+		World* world = GetWorld();
+		float dist = abs(length(moveData.targetPos - moveData.startPos));
+		moveData.progress += (moveData.speed * entity.delta_time() / (dist * 0.01f));
+		if (moveData.progress > 1)
+		{
+			moveData.progress = 1;
+			moveData.reachedTarget = true;
+		}
+		float3 controlPoint = moveData.targetPos - (moveData.startPos * 0.5f);
+		float3 bezierPoint = CalculateBezierPoint(moveData.progress, moveData.startPos, controlPoint, moveData.targetPos);
+
+		float3 dir = normalize(bezierPoint - moveData.currentPos);
+		float targetRot = atan2(dir.z, dir.x);
+		world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
+		moveData.currentPos = bezierPoint;
+		world->MoveSpriteTo(entity.id(), moveData.currentPos.x, moveData.currentPos.y, moveData.currentPos.z);
+		UnitHeight(entity, moveData.currentPos);
 	}
 }
 
@@ -125,7 +148,7 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 			movePathFinding.reachedTarget = true;
 			return;
 		}
-		pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
+		//pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
 		movePathFinding.flowField = pathfinder.GetFlowFlield(GetIndexes(movePathFinding.target));
 		int targetIndex = movePathFinding.flowField[GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x)];
 		//pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x), 10);
@@ -136,6 +159,7 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 			float3 newTarget = make_float3((newTargetGridPos.x + 10) * 16, movePathFinding.target.y, (newTargetGridPos.y + 10) * 16);
 			if (pathfinder.unitField[GridPosToIndex(GetIndexes(newTarget), mapSize.x)] < 5)
 			{
+				pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
 				pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(newTarget), mapSize.x), 10);
 				movePathFinding.oldPos = moveLocation->currentPos;
 				movePathFinding.setOldPosUnitCost = false;
@@ -167,15 +191,26 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 	}
 }
 
-void SpawnShotObject(const uint shootObject, const int3 location, const ShotObjectData& shotobjectData)
+void SpawnTankBullet(const uint shootObject, const int3 location, const ShotObjectData& shotobjectData)
 {
 	World* world = GetWorld();
 	uint spriteID = world->CloneSprite(shootObject);
 	world->MoveSpriteTo(spriteID, location.x, location.y, location.z);
 	flecs::entity entity = ecs.entity(spriteID);
 	entity.add<ShotObjectData>()
-		.set<ShotObjectData>(shotobjectData);
-	//cout << "Created Sprite: " + to_string(spriteID) << endl;
+		.set<ShotObjectData>(shotobjectData)
+		.add<TankBullet>();
+}
+
+void SpawnArtilleryBullet(const uint shootObject, const int3 location, const ShotObjectData& shotobjectData)
+{
+	World* world = GetWorld();
+	uint spriteID = world->CloneSprite(shootObject);
+	world->MoveSpriteTo(spriteID, location.x, location.y, location.z);
+	flecs::entity entity = ecs.entity(spriteID);
+	entity.add<ShotObjectData>()
+		.set<ShotObjectData>(shotobjectData)
+		.add<ArtilleryBullet>();
 }
 
 int GetTarget(float fireRange, int3 currentPos)
@@ -242,31 +277,49 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 	}
 
 	MoveLocation moveData{ weaponData.shotObjectSpeed,make_float3(currentPos),make_float3(currentPos), make_float3(enemyPos),false,0 };
-	ShotObjectData shotObjectData{ moveData, enemyID,weaponData.dmg };
-	SpawnShotObject(weaponData.shotObjectID, currentPos, shotObjectData);
+	ShotObjectData shotObjectData{ moveData, enemyID};
+	switch (weaponData.bulletType)
+	{
+		case BulletType::Bullet_Tank:
+		{
+			SpawnTankBullet(weaponData.shotObjectID, currentPos, shotObjectData);
+			break;
+		}
+		case BulletType::Bullet_Artillery:
+		{
+			SpawnArtilleryBullet(weaponData.shotObjectID, currentPos, shotObjectData);
+			break;
+		}
+	}
 	weaponData.currentReloadTime = weaponData.reloadTime;
 }
 
 
-void MoveShotObject(const flecs::entity entity, ShotObjectData& shotObjectData)
+void MoveTankBullet(const flecs::entity entity, TankBullet& tankBullet, ShotObjectData& shotObjectData)
 {
 	flecs::entity target = ecs.entity(shotObjectData.targetID);
 	if (!target.has<Dead>())
 	{
+		MoveEntity(entity, shotObjectData.moveData);
 		if (shotObjectData.moveData.reachedTarget)
 		{
 			GetWorld()->DisableSprite(shotObjectData.targetID);
 			target.add<Dead>();
 			GetWorld()->DisableSprite(entity.id());
 			entity.add<Dead>();
-			//cout << "Destory: " + to_string(entity.id()) << endl;
-		}
-		else
-		{
-			MoveEntity(entity, shotObjectData.moveData);
 		}
 	}
 	else
+	{
+		GetWorld()->DisableSprite(entity.id());
+		entity.add<Dead>();
+	}
+}
+
+void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryBullet, ShotObjectData& shotObjectData)
+{
+	MoveCurveEntity(entity, shotObjectData.moveData);
+	if (shotObjectData.moveData.reachedTarget)
 	{
 		GetWorld()->DisableSprite(entity.id());
 		entity.add<Dead>();

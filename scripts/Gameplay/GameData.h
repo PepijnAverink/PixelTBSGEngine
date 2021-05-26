@@ -7,6 +7,10 @@ namespace Tmpl8
 	vector<int> heightMap;
 	int2 mapSize;
 
+	//Enums
+
+	enum BulletType { Bullet_Tank = 0, Bullet_Artillery };
+
 	struct Units
 	{
 		uint recon;
@@ -109,19 +113,18 @@ namespace Tmpl8
 	{
 		MoveLocation moveData;
 		uint targetID;
-		float dmg; //not in use now
 	};
 
 	struct WeaponData
 	{
 		float currentRot;
 		float fireRange;
-		float dmg; //not in use now
 		uint shotObjectID;
 		float targetRot;
 		float reloadTime;
 		float currentReloadTime;
 		float shotObjectSpeed;
+		BulletType bulletType;
 	};
 
 	struct ChildData
@@ -137,6 +140,10 @@ namespace Tmpl8
 
 	struct Dead {};
 
+	struct TankBullet {};
+
+	struct ArtilleryBullet{};
+
 	//Filters
 
 	auto filterPlayer1 = flecs::filter(ecs)
@@ -146,5 +153,6 @@ namespace Tmpl8
 	auto filterPlayer2 = flecs::filter(ecs)
 		.include<Player2>()
 		.include_kind(flecs::MatchAll);
+
 
 }

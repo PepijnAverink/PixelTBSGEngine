@@ -58,7 +58,7 @@ vector<int> Tmpl8::Pathfinder::CalculateIntegrationField(const int2 target)
                 {
                     openList.push_back(currentNeiborID);
                 }
-                if (neiborCost < 255)
+                if (costField[currentNeiborID] < 255)
                 {
                     integrationField[currentNeiborID] = endNodeCost;
                 }
@@ -123,16 +123,15 @@ vector<int> Tmpl8::Pathfinder::GetSquareNeibors(const int target)
 
 vector<int> Tmpl8::Pathfinder::GetFlowFlield(const int2 target)
 {
-   /* if (flowfields.find(target) != flowfields.end())
+    if (flowfields.find(target) != flowfields.end())
     {
-        return &flowfields[target];
+        return flowfields[target];
     }
     else
     {
         flowfields.insert(std::pair<int2, vector<int>>(target, CalculateFlowField(target)));
-        return &flowfields[target];
-    }*/
-    return CalculateFlowField(target);
+        return flowfields[target];
+    }
 }
 
 void Tmpl8::Pathfinder::VisualizeFlowField(float3 target)
@@ -229,7 +228,7 @@ void Tmpl8::Pathfinder::VisualizeUnitField()
     }
     for (int i = 0; i < unitField.size(); ++i)
     {
-        if (unitField[i] == 255)
+        if (unitField[i] > 0)
         {
             GetWorld()->EnableSprite(points[i]);
             int2 gridPos = IndexToGridPos(i, mapSize.x);
@@ -284,6 +283,19 @@ const vector <float3> Tmpl8::Pathfinder::GetTargetsForUnit(float3 target, int in
 
 
     return targets;
+}
+
+void Tmpl8::Pathfinder::UpdateFlowfields(float dt)
+{
+    timer -= dt;
+    if (timer < 0)
+    {
+        for each (pair<int2, vector<int>>  flowfield in flowfields)
+        {
+            flowfield.second = CalculateFlowField(flowfield.first);
+        }
+        timer = maxTime;
+    }
 }
 
 bool Tmpl8::Pathfinder::CheckIfContains(const int index, const list<int> list)

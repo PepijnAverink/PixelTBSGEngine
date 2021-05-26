@@ -13,14 +13,14 @@ namespace Tmpl8
         inline void RemoveCostOnCostField(const int pos) { costField[pos] = 1; };
         inline void SetMapSize(const int2 newMapSize) { mapSize = newMapSize; unitField = vector<int>(newMapSize.x * newMapSize.y); };
         inline void SetUnitInUnitField(const int oldPos, const int newPos) { if (oldPos > 0 && oldPos < unitField.size()) { unitField[oldPos] = 0; } if (newPos > 0 && newPos < unitField.size()) { unitField[newPos] = 255; } };
-        inline void SetUnitInUnitField(const int pos) { if (pos > 0 && pos < unitField.size()) { unitField[pos] = 255; } };
+        inline void SetUnitInUnitField(const int pos) { if (pos > 0 && pos < unitField.size()) { unitField[pos] = 100; } };
         inline void SetUnitInUnitFieldWithAmount(const int pos,const int amount) { if (pos > 0 && pos < unitField.size()) { unitField[pos] = amount; } };
         inline void RemoveUnitInUnitField(const int pos) { if (pos > 0 && pos < unitField.size()) { unitField[pos] = 0; } };
         vector<int> GetFlowFlield(const int2 target);
         void VisualizeFlowField(float3 target);
         void VisualizeUnitField();
         const vector <float3> GetTargetsForUnit(float3 target, int index);
-
+        void UpdateFlowfields(float dt);
         //Debug
         uint arrow;
         uint point;
@@ -41,7 +41,8 @@ namespace Tmpl8
         //Debug
         vector<uint> arrows;
         vector<uint> points;
-
+        float timer;
+        float maxTime = 2;
 
     };
 }
