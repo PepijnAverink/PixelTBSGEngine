@@ -443,9 +443,9 @@ flecs::entity Tmpl8::MyGame::SpawnTank(uint unit, int playerID, float3 location)
 
 	world->SetSpritePivot(top.id(), 8, 0, 6);
 	top.add<Rotation>()
-		.set<Rotation>({ 0,300,0 })
+		.set<Rotation>({ 0,300,0,true })
 		.add<WeaponData>()
-		.set<WeaponData>({ 0, 100,0,units.bullet,0,5,0,0.75f });
+		.set<WeaponData>({ 0, 100,units.bullet,0,5,0, 100,BulletType::Bullet_Tank });
 
 	//flecs::entity currentUnit = SpawnEntity(units.recon, playerID, location);
 	world->SetSpritePivot(currentUnit.id(), 8, 0, 6);
