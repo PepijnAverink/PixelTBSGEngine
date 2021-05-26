@@ -67,7 +67,8 @@ void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 	ecs.system<MovePathFinding>("MoveEntityOverPath").kind(flecs::OnUpdate).each(GameplayFunctions::MoveUnitOverPath);
 	ecs.system<MoveAttack>("MoveAttackEntity").kind(flecs::OnUpdate).each(GameplayFunctions::MoveAttackEntity);
 	ecs.system<WeaponData>("WeaponUpdate").kind(flecs::OnUpdate).each(GameplayFunctions::WeaponUpdate);
-	ecs.system<ShotObjectData>("MoveShotObject").kind(flecs::OnUpdate).each(GameplayFunctions::MoveTankBullet);
+	ecs.system<TankBullet, ShotObjectData>("MoveTankBullet").kind(flecs::OnUpdate).each(GameplayFunctions::MoveTankBullet);
+	ecs.system<ArtilleryBullet, ShotObjectData>("MoveArtilleryBullet").kind(flecs::OnUpdate).each(GameplayFunctions::MoveArtilleryBullet);
 	ecs.system<ChildData>("MoveChild").kind(flecs::OnUpdate).each(GameplayFunctions::HandleChilds);
 }
 
