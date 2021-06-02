@@ -36,33 +36,53 @@ void MyGame::Init()
 	pathfinder.SetMapSize(make_int2(tileLoader.grid.width, tileLoader.grid.height));
 	//VisualizeFlowField(make_float3(390, 16, 210));
 
-	float3 startPos = make_float3(368, 16, 368);
-	for (int i = 0; i < 5; ++i)
+	float3 startPos = make_float3(640, 16, 592);
+	for (int i = 0; i < 3; ++i)
 	{
-		for (int ii = 0; ii < 5; ++ii)
+		for (int ii = 0; ii < 3; ++ii)
 		{
-			float3 spawnPos = startPos + make_float3(i * 16, 0, ii * 16);
-			SpawnTank(units.recon, 1, spawnPos);
+			float3 spawnPos = startPos - make_float3(i * 16, 0, ii * 16);
+			SpawnArtilleryTank(1, spawnPos);
 			pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(spawnPos), mapSize.x));
 		}
 	}
 
-	SpawnEntity(units.aAirMissile, 2, { 390,16,210 });
-	SpawnEntity(units.aAirMissile, 2, { 210,16,390 });
-	SpawnEntity(units.aAirMissile, 2, { 210,16,210 });
+	vector<float3> patrolPoints = {make_float3(256,16,384),make_float3(256,16,448) };
+	SpawnPatrollingAtrilleryTank(2, make_float3(256, 16, 384), patrolPoints);
+	
+	patrolPoints = {make_float3(288,16,384),make_float3(288,16,448) };
+	SpawnPatrollingAtrilleryTank(2, make_float3(288, 16, 384), patrolPoints);
+
+	patrolPoints = { make_float3(384,16,160),make_float3(384,16,384), make_float3(160,16,384),make_float3(384,16,384) };
+	SpawnPatrollingAtrilleryTank(2, make_float3(384, 16, 160), patrolPoints);
+
+
+	//SpawnArtilleryTank(2, { 390,16,226 });
+	//SpawnArtilleryTank(2, { 210,16,390 });
+	//SpawnArtilleryTank(2, { 210,16,210 });
+
+	//SpawnEntity(units.aAirMissile, 2, { 390,16,210 });
+	//SpawnEntity(units.aAirMissile, 2, { 390,16,226 });
+	//SpawnEntity(units.aAirMissile, 2, { 210,16,390 });
+	//SpawnEntity(units.aAirMissile, 2, { 210,16,210 });
 }
 
 void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 {
 	ecs.component<MoveLocation>();
 	ecs.component<MovePathFinding>();
+	ecs.component<PatrollData>();
 	ecs.component<MoveAttack>();
 	ecs.component<Rotation>();
 	ecs.component<Player1>();
 	ecs.component<Player2>();
 	ecs.component<Dead>();
 	ecs.component<ChildData>();
+	ecs.component<TankBullet>();
+	ecs.component<ArtilleryBullet>();
+	ecs.component<Building>();
 	ecs.system<Rotation>("RotateEntity").kind(flecs::OnUpdate).each(GameplayFunctions::RotateEntity);
+	ecs.system<MoveLocation>("OnAddMoveLocation").kind(flecs::OnAdd).each(GameplayFunctions::OnAddMoveLocation);
 	ecs.system<MoveLocation>("MoveEntity").kind(flecs::OnUpdate).each(GameplayFunctions::MoveEntity);
 	ecs.system<MovePathFinding>("MoveEntityOverPath").kind(flecs::OnUpdate).each(GameplayFunctions::MoveUnitOverPath);
 	ecs.system<MoveAttack>("MoveAttackEntity").kind(flecs::OnUpdate).each(GameplayFunctions::MoveAttackEntity);
@@ -70,6 +90,7 @@ void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 	ecs.system<TankBullet, ShotObjectData>("MoveTankBullet").kind(flecs::OnUpdate).each(GameplayFunctions::MoveTankBullet);
 	ecs.system<ArtilleryBullet, ShotObjectData>("MoveArtilleryBullet").kind(flecs::OnUpdate).each(GameplayFunctions::MoveArtilleryBullet);
 	ecs.system<ChildData>("MoveChild").kind(flecs::OnUpdate).each(GameplayFunctions::HandleChilds);
+	ecs.system<MovePathFinding,PatrollData>("PatrolEntity").kind(flecs::OnUpdate).each(GameplayFunctions::PatrollEntity);
 }
 
 void Tmpl8::MyGame::SpawnWorld()
@@ -102,6 +123,9 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 			world->DrawBigTile(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
 
 			uint spriteID = world->CloneSprite(tileData.tile);
+			flecs::entity building =  ecs.entity(spriteID);
+			building.add<Building>()
+					.add<Player2>();
 			world->MoveSpriteTo(spriteID, spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
 			world->SetSpritePivot(spriteID, 8, 0, 8);
 			world->RotateSprite(spriteID, 0, 1, 0, DegreesToRadians(tileData.rotation));
@@ -128,8 +152,7 @@ void MyGame::Tick(float deltaTime)
 
 	//Outline for selection
 	SetOutlineSelectedUnits();
-	pathfinder.VisualizeUnitField();
-	pathfinder.UpdateFlowfields(deltaTime);
+	//pathfinder.VisualizeUnitField();
 
 	float3 direction = make_float3((keys[GLFW_KEY_UP] || keys[GLFW_KEY_W]) - (keys[GLFW_KEY_DOWN] || keys[GLFW_KEY_S]), 0, (keys[GLFW_KEY_LEFT] || keys[GLFW_KEY_A]) - (keys[GLFW_KEY_RIGHT] || keys[GLFW_KEY_D]));
 	//float3 direction = make_float3((mousePos.y < 20 ? 1 : 0) - (mousePos.y > 700 ? 1 : 0), 0, (mousePos.x < 20 ? 1 : 0) - (mousePos.x > 1260 ? 1 : 0));
@@ -162,7 +185,7 @@ void Tmpl8::MyGame::MouseUp(int button)
 				selectedUnits.push_back(objectHit);
 				return;
 			}
-			else if (IsEnemyUnit(objectHit))
+			else if (IsEnemyUnit(objectHit) || IsEnemyBuilding(objectHit))
 			{
 				SetSelectedTanksAttackTarget(objectHit);
 				std::cout << "Works" << std::endl;
@@ -316,7 +339,9 @@ void Tmpl8::MyGame::SetUnitMoveLocationAndRotation(float3 target, flecs::entity&
 void Tmpl8::MyGame::SetUnitMovePath(float3 target, uint unitID)
 {
 	flecs::entity& unit = ecs.entity(unitID);
-	unit.set<MovePathFinding>({ target ,target ,false,false,pathfinder.GetFlowFlield(GetIndexes(target)) });
+	MovePathFinding* movePathfFinding = unit.get_mut<MovePathFinding>();
+	movePathfFinding->target = target;
+	movePathfFinding->reachedTarget = false;
 }
 
 void Tmpl8::MyGame::SetUnitAttackTarget(uint target, uint unitID)
@@ -324,26 +349,37 @@ void Tmpl8::MyGame::SetUnitAttackTarget(uint target, uint unitID)
 	flecs::entity& unit = ecs.entity(unitID);
 	if (unit.has<MoveAttack>())
 	{
-		int3 targetPos = world->sprite[target]->currPos;
-		int2 indexes = GetIndexes(make_float3(targetPos));
+		//int3 targetPos = world->sprite[target]->currPos;
+		//int2 indexes = GetIndexes(make_float3(targetPos));
 		//recalculate point to go
-		float2 newTarget = GetEntityPos(indexes);
-		SetUnitMovePath(make_float3(newTarget.x, targetPos.y, newTarget.y), unitID);
+		//float2 newTarget = GetEntityPos(indexes);
+		//SetUnitMovePath(make_float3(newTarget.x, targetPos.y, newTarget.y), unitID);
 		MoveAttack* moveAttack = unit.get_mut<MoveAttack>();
 		moveAttack->target = target;
 		unit.modified<MoveAttack>();
+
+		WeaponData* weaponData = ecs.entity(unit.get<ChildData>()->childID).get_mut<WeaponData>();
+		weaponData->target = target;
 	}
 }
 
 
 void Tmpl8::MyGame::SetSelectedTanksMoveLocation(float3 target)
 {
-	const vector<float3> newTarget = pathfinder.GetTargetsForUnit(target, 1);
+	const vector<float3> newTarget = pathfinder.GetTargetsForUnit(target, selectedUnits.size());
 	for (int i = 0; i < selectedUnits.size();++i)
 	{	
-		//ecs.entity(selectedUnits[i]).disable<MoveAttack>();
-		SetUnitMovePath(newTarget[0], selectedUnits[i]);
-		//pathfinder.VisualizeFlowField(newTarget[i]);
+		if (ecs.entity(selectedUnits[i]).has<Dead>())
+		{
+			selectedUnits.erase(selectedUnits.begin() + i);
+			--i;
+		}
+		else
+		{
+			//ecs.entity(selectedUnits[i]).disable<MoveAttack>();
+			SetUnitMovePath(newTarget[i], selectedUnits[i]);
+			//pathfinder.VisualizeFlowField(newTarget[i]);
+		}
 	}
 }
 
@@ -359,7 +395,7 @@ void Tmpl8::MyGame::SetOutlineSelectedUnits()
 {
 	for (int i = 0; i < 20; ++i)
 	{
-		if (selectedUnits.size() > i)
+		if (selectedUnits.size() > i && !ecs.entity(selectedUnits[i]).has<Dead>())
 		{
 			MoveSpriteTo(outlineSprties[i], world->sprite[selectedUnits[i]]->currPos + make_int3(-15, 3, -15));
 		}
@@ -424,7 +460,23 @@ bool Tmpl8::MyGame::IsEnemyUnit(uint enemyID)
 	return false;
 }
 
-flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, int playerID /* = 0*/, float3 location /* = float3 (0,0,0) */)
+bool Tmpl8::MyGame::IsEnemyBuilding(uint enemyID)
+{
+	for (auto& it : ecs.filter(filterPlayer2Building))
+	{
+		for (auto& index : it)
+		{
+			if (it.entity(index).id() == enemyID)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, uint playerID /* = 0*/, float3 location /* = float3 (0,0,0) */)
 {
 	uint spriteID = world->CloneSprite(unit);
 	world->MoveSpriteTo(spriteID, location.x, location.y, location.z);
@@ -435,18 +487,15 @@ flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, int playerID /* = 0*/, float
 	return entity;
 }
 
-flecs::entity Tmpl8::MyGame::SpawnTank(uint unit, int playerID, float3 location)
+flecs::entity Tmpl8::MyGame::SpawnUnitWithChild(uint top, uint bottom, uint playerID, float3 location, float3 offset)
 {
-	float3 offsetChild = make_float3(0, 9, 0);
-	flecs::entity currentUnit = SpawnEntity(units.reconBottom, playerID, location);
-	flecs::entity top = SpawnEntity(units.reconTop, 0, location + offsetChild);
+	flecs::entity currentUnit = SpawnEntity(bottom, playerID, location);
+	flecs::entity childUnit = SpawnEntity(top, 0, location + offset);
 	//top.add_childof(currentUnit);
 
-	world->SetSpritePivot(top.id(), 8, 0, 6);
-	top.add<Rotation>()
-		.set<Rotation>({ 0,300,0,true })
-		.add<WeaponData>()
-		.set<WeaponData>({ 0, 100,units.bullet,0,5,0, 100,BulletType::Bullet_Tank });
+	world->SetSpritePivot(childUnit.id(), 8, 0, 6);
+	childUnit.add<Rotation>()
+		.set<Rotation>({ 0,300,0,true });
 
 	//flecs::entity currentUnit = SpawnEntity(units.recon, playerID, location);
 	world->SetSpritePivot(currentUnit.id(), 8, 0, 6);
@@ -459,7 +508,59 @@ flecs::entity Tmpl8::MyGame::SpawnTank(uint unit, int playerID, float3 location)
 		.add<MovePathFinding>()
 		.set<MovePathFinding>({ location ,location ,true,true })
 		.add<ChildData>()
-		.set<ChildData>({ (uint)top.id(), offsetChild });
+		.set<ChildData>({ (uint)childUnit.id(), offset });
 
+	return currentUnit;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnUnit(uint unit, uint playerID, float3 location)
+{
+	flecs::entity currentUnit = SpawnEntity(unit, playerID, location);
+	world->SetSpritePivot(currentUnit.id(), 8, 0, 6);
+	currentUnit.add<MoveLocation>()
+		.set<MoveLocation>({ 0.5f, location, location,location, true, 0 })
+		.add<MoveAttack>()
+		.set<MoveAttack>({ 0,90 })
+		.add< Rotation>()
+		.set<Rotation>({ 0,300,0,true })
+		.add<MovePathFinding>()
+		.set<MovePathFinding>({ location ,location ,true,true });
+
+	return currentUnit;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnTank(uint playerID, float3 location)
+{
+	flecs::entity currentUnit = SpawnUnitWithChild(units.reconTop, units.reconBottom, playerID, location, make_float3(0, 9, 0));
+	ecs.entity(currentUnit.get<ChildData>()->childID)
+	.add<WeaponData>()
+	.set<WeaponData>({ 0, 100,units.bullet,0,5,0, 1,BulletType::Bullet_Tank,playerID });
+	return currentUnit;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnArtilleryTank(uint playerID, float3 location)
+{
+	flecs::entity currentUnit = SpawnUnitWithChild(units.artilleryTop, units.artilleryBottom, playerID, location,make_float3(0, 6, 0));
+	ecs.entity(currentUnit.get<ChildData>()->childID)
+		.add<WeaponData>()
+		.set<WeaponData>({ 0, 100,units.bullet,0,5,0, 1,BulletType::Bullet_Artillery,playerID });
+	return currentUnit;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnPatrollingTank(uint playerID, float3 location, vector<float3> patrolPoints)
+{
+	flecs::entity currentUnit = SpawnTank(2, location);
+	currentUnit.add<PatrollData>()
+		.set<PatrollData>({ patrolPoints , 0 });
+	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;
+	return currentUnit;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnPatrollingAtrilleryTank(uint playerID, float3 location, vector<float3> patrolPoints)
+{
+	flecs::entity currentUnit = SpawnArtilleryTank(2, location);
+	currentUnit.add<PatrollData>()
+		.set<PatrollData>({ patrolPoints , 0 });
+	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;
 	return currentUnit;
 }

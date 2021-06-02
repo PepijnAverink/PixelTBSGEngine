@@ -46,10 +46,16 @@ public:
 	vector <uint> GetFriendlyUnitInArea(float3 start, float3 end);
 	bool IsFriendlyUnit(uint unitID);
 	bool IsEnemyUnit(uint enemyID);
+	bool IsEnemyBuilding(uint enemyID);
 
 	
-	flecs::entity SpawnEntity(uint unit, int playerID = 0, float3 location = make_float3(0,0,0));
-	flecs::entity SpawnTank(uint unit, int playerID = 0, float3 location = make_float3(0,0,0));
+	flecs::entity SpawnEntity(uint unit, uint playerID = 0, float3 location = make_float3(0,0,0));
+	flecs::entity SpawnUnit(uint unit, uint playerID = 0, float3 location = make_float3(0,0,0));
+	flecs::entity SpawnUnitWithChild(uint top, uint bottom, uint playerID = 0, float3 location = make_float3(0,0,0), float3 offset = make_float3(0, 0, 0));
+	flecs::entity SpawnTank(uint playerID = 0, float3 location = make_float3(0,0,0));
+	flecs::entity SpawnArtilleryTank(uint playerID = 0, float3 location = make_float3(0,0,0));
+	flecs::entity SpawnPatrollingTank(uint playerID, float3 location, vector<float3> patrolPoints);
+	flecs::entity SpawnPatrollingAtrilleryTank(uint playerID, float3 location, vector<float3> patrolPoints);
 
 
 private:

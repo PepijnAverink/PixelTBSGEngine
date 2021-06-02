@@ -735,6 +735,11 @@ inline float2 GetEntityPos(const int2 Indexes)
 	return make_float2((Indexes.x + 10) * 16, (Indexes.y + 10) * 16);
 }
 
+inline float3 GetEntityPos(const int2 Indexes, const int height)
+{
+	return make_float3((Indexes.x + 10) * 16, height, (Indexes.y + 10) * 16);
+}
+
 inline float3 CalculateBezierPoint(float time, float3 startPosition, float3 controlPoint, float3 endPosition)
 {
 	float u = 1 - time;

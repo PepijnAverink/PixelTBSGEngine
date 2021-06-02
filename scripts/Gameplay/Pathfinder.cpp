@@ -123,15 +123,7 @@ vector<int> Tmpl8::Pathfinder::GetSquareNeibors(const int target)
 
 vector<int> Tmpl8::Pathfinder::GetFlowFlield(const int2 target)
 {
-    if (flowfields.find(target) != flowfields.end())
-    {
-        return flowfields[target];
-    }
-    else
-    {
-        flowfields.insert(std::pair<int2, vector<int>>(target, CalculateFlowField(target)));
-        return flowfields[target];
-    }
+    return CalculateFlowField(target);
 }
 
 void Tmpl8::Pathfinder::VisualizeFlowField(float3 target)
@@ -279,23 +271,7 @@ const vector <float3> Tmpl8::Pathfinder::GetTargetsForUnit(float3 target, int in
             }
         }
     }
-    
-
-
     return targets;
-}
-
-void Tmpl8::Pathfinder::UpdateFlowfields(float dt)
-{
-    timer -= dt;
-    if (timer < 0)
-    {
-        for each (pair<int2, vector<int>>  flowfield in flowfields)
-        {
-            flowfield.second = CalculateFlowField(flowfield.first);
-        }
-        timer = maxTime;
-    }
 }
 
 bool Tmpl8::Pathfinder::CheckIfContains(const int index, const list<int> list)

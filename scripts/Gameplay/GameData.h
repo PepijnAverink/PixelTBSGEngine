@@ -17,6 +17,8 @@ namespace Tmpl8
 		uint vTB;
 		uint rocket;
 		uint artillery;
+		uint artilleryTop;
+		uint artilleryBottom;
 		uint bazooka;
 		uint infantery;
 		uint aAirMissile;
@@ -37,6 +39,8 @@ namespace Tmpl8
 			vTB = world.LoadSprite("assets/Units/TanksAndWar_Source-22-VTB.vox");
 			rocket = world.LoadSprite("assets/Units/TanksAndWar_Source-23-Rocket.vox");
 			artillery = world.LoadSprite("assets/Units/TanksAndWar_Source-25-Artillery.vox");
+			artilleryTop = world.LoadSprite("assets/Units/TanksAndWar_Source-Artillery-Top.vox");
+			artilleryBottom = world.LoadSprite("assets/Units/TanksAndWar_Source-Artillery-Bottom.vox");
 			bazooka = world.LoadSprite("assets/Units/TanksAndWar_Source-26-Bazooka.vox");
 			infantery = world.LoadSprite("assets/Units/TanksAndWar_Source-27-Infantery.vox");
 			aAirMissile = world.LoadSprite("assets/Units/TanksAndWar_Source-29-A-AirMissile.vox");
@@ -90,7 +94,6 @@ namespace Tmpl8
 		float3 oldPos;
 		bool reachedTarget;
 		bool setOldPosUnitCost;
-		vector<int> flowField;
 	};
 
 	struct MoveLocation
@@ -103,6 +106,12 @@ namespace Tmpl8
 		float progress;
 	};
 
+	struct PatrollData
+	{
+		vector<float3> targets;
+		int index;
+	};
+
 	struct MoveAttack
 	{
 		uint target;
@@ -113,6 +122,7 @@ namespace Tmpl8
 	{
 		MoveLocation moveData;
 		uint targetID;
+		uint playerID;
 	};
 
 	struct WeaponData
@@ -125,6 +135,8 @@ namespace Tmpl8
 		float currentReloadTime;
 		float shotObjectSpeed;
 		BulletType bulletType;
+		uint playerID;
+		uint target;
 	};
 
 	struct ChildData
@@ -140,18 +152,48 @@ namespace Tmpl8
 
 	struct Dead {};
 
+	struct Building {};
+
 	struct TankBullet {};
 
-	struct ArtilleryBullet{};
+	struct ArtilleryBullet {};
 
 	//Filters
 
 	auto filterPlayer1 = flecs::filter(ecs)
+		.exclude<Building>()
 		.include<Player1>()
 		.include_kind(flecs::MatchAll);
 
 	auto filterPlayer2 = flecs::filter(ecs)
+		.exclude<Building>()
 		.include<Player2>()
+		.include_kind(flecs::MatchAll);
+
+	auto filterPlayers = flecs::filter(ecs)
+		.exclude<Building>()
+		.include<Player1>()
+		.include<Player2>()
+		.include_kind(flecs::MatchAny);
+
+	auto filterPlayersAndBuildings = flecs::filter(ecs)
+		.include<Building>()
+		.include<Player1>()
+		.include<Player2>()
+		.include_kind(flecs::MatchAny);
+
+	auto filterBuilding = flecs::filter(ecs)
+		.include<Building>()
+		.include_kind(flecs::MatchAll);
+
+	auto filterPlayer1Building = flecs::filter(ecs)
+		.include<Player1>()
+		.include<Building>()
+		.include_kind(flecs::MatchAll);
+
+	auto filterPlayer2Building = flecs::filter(ecs)
+		.include<Player2>()
+		.include<Building>()
 		.include_kind(flecs::MatchAll);
 
 

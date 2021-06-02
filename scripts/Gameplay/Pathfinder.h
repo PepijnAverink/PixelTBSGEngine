@@ -20,7 +20,6 @@ namespace Tmpl8
         void VisualizeFlowField(float3 target);
         void VisualizeUnitField();
         const vector <float3> GetTargetsForUnit(float3 target, int index);
-        void UpdateFlowfields(float dt);
         //Debug
         uint arrow;
         uint point;
@@ -35,7 +34,6 @@ namespace Tmpl8
         bool CheckIfContains(const int index, const list<int> list);
         bool CheckIfContains(const int index, const vector<int> list);
         vector<int> costField;
-        map<int2, vector<int>> flowfields = map<int2,vector<int>>();
         int2 mapSize;
 
         //Debug

@@ -12,7 +12,7 @@ namespace GameplayFunctions
 		if (!rotation.reachedTarget)
 		{
 			float diff = rotation.currentRotation - rotation.target;
-			float modifier = diff > 0 ? abs(diff) < 180 ? -1 : 1 : abs(diff) < 180 ? 1 : -1;
+			float modifier = diff > 0 ? abs(diff) < 180 ? -1 : 1 : abs(diff) <= 180 ? 1 : -1;
 			float change = rotation.speed * entity.delta_time();
 			World* world = GetWorld();
 
@@ -44,9 +44,13 @@ void UnitHeight(const flecs::entity& entity, float3 entityPos)
 	GetWorld()->MoveSpriteTo(entity.id(), entityPos.x, 16 + currentTileHeight, entityPos.z);
 }
 
+void OnAddMoveLocation(const flecs::entity& entity, MoveLocation& moveData)
+{
+	UnitHeight(entity, make_float3(GetWorld()->sprite[entity.id()]->currPos));
+}
 
-void MoveEntity(const flecs::entity& entity, MoveLocation& moveData) {
-
+void MoveEntity(const flecs::entity& entity, MoveLocation& moveData) 
+{
 	if (!moveData.reachedTarget)
 	{
 		World* world = GetWorld();
@@ -61,7 +65,7 @@ void MoveEntity(const flecs::entity& entity, MoveLocation& moveData) {
 		{
 			float3 dir = normalize(moveData.targetPos - moveData.startPos);
 			float targetRot = atan2(dir.z, dir.x);
-			world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
+			world->RotateSprite(entity.id(), 0, 1, 0, DegreesToRadians(targetRot));
 		}
 		float dist = abs(length(moveData.targetPos - moveData.startPos));
 		//std::cout << to_string(entity.delta_time()) << std::endl;
@@ -82,22 +86,24 @@ void MoveCurveEntity(const flecs::entity& entity, MoveLocation& moveData) {
 	if (!moveData.reachedTarget)
 	{
 		World* world = GetWorld();
-		float dist = abs(length(moveData.targetPos - moveData.startPos));
+		float3 diff = moveData.targetPos - moveData.startPos;
+		diff.y = 0;
+		float dist = abs(length(diff));
 		moveData.progress += (moveData.speed * entity.delta_time() / (dist * 0.01f));
 		if (moveData.progress > 1)
 		{
 			moveData.progress = 1;
 			moveData.reachedTarget = true;
 		}
-		float3 controlPoint = moveData.targetPos - (moveData.startPos * 0.5f);
+		float3 controlPoint = moveData.targetPos - (diff * 0.5f);
+		controlPoint.y = 50;
 		float3 bezierPoint = CalculateBezierPoint(moveData.progress, moveData.startPos, controlPoint, moveData.targetPos);
 
 		float3 dir = normalize(bezierPoint - moveData.currentPos);
 		float targetRot = atan2(dir.z, dir.x);
-		world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
 		moveData.currentPos = bezierPoint;
 		world->MoveSpriteTo(entity.id(), moveData.currentPos.x, moveData.currentPos.y, moveData.currentPos.z);
-		UnitHeight(entity, moveData.currentPos);
+		world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
 	}
 }
 
@@ -121,13 +127,17 @@ void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 				{
 					movePathFinding->target = newTarget;
 					movePathFinding->reachedTarget = false;
+					movePathFinding->setOldPosUnitCost = true;
 					entity.modified<MovePathFinding>();
 				}
 				return;
 			}
 			MovePathFinding* movePathFinding = entity.get_mut<MovePathFinding>();
+			int3 indexes = make_int3(round(moveLocation->currentPos.x / 16), 0, round(moveLocation->currentPos.z / 16));
+			float3 newTarget = make_float3(indexes.x * 16, target.y, indexes.z * 16);
 			moveAttack.target = 0;
-			movePathFinding->target = moveLocation->targetPos;
+			movePathFinding->target = newTarget;
+			entity.modified<MovePathFinding>();
 		}
 	}
 }
@@ -135,32 +145,36 @@ void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFinding)
 {
 	MoveLocation* moveLocation = entity.get_mut<MoveLocation>();
-	if (!movePathFinding.reachedTarget && moveLocation->reachedTarget)
+	if (!movePathFinding.reachedTarget && moveLocation->reachedTarget && !entity.has<Dead>())
 	{
 		if (!movePathFinding.setOldPosUnitCost)
 		{
-			//pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(movePathFinding.oldPos), mapSize.x));
+			pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(movePathFinding.oldPos), mapSize.x));
 			movePathFinding.setOldPosUnitCost = true;
 		}
+
+		float indexCurrentPos = GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x);
+
 		if (make_int3(moveLocation->currentPos) == make_int3(movePathFinding.target))
 		{
-			pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
+			pathfinder.SetUnitInUnitField(indexCurrentPos);
 			movePathFinding.reachedTarget = true;
+			movePathFinding.setOldPosUnitCost = true;
 			return;
 		}
-		//pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
-		movePathFinding.flowField = pathfinder.GetFlowFlield(GetIndexes(movePathFinding.target));
-		int targetIndex = movePathFinding.flowField[GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x)];
-		//pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x), 10);
+		pathfinder.RemoveUnitInUnitField(indexCurrentPos);
+		vector<int> flowField = pathfinder.GetFlowFlield(GetIndexes(movePathFinding.target));
+		int targetIndex = flowField[indexCurrentPos];
+		pathfinder.SetUnitInUnitFieldWithAmount(indexCurrentPos, 4);
 
 		if (targetIndex > 0)
 		{
 			int2 newTargetGridPos = IndexToGridPos(targetIndex, mapSize.x);
 			float3 newTarget = make_float3((newTargetGridPos.x + 10) * 16, movePathFinding.target.y, (newTargetGridPos.y + 10) * 16);
-			if (pathfinder.unitField[GridPosToIndex(GetIndexes(newTarget), mapSize.x)] < 5)
+			if (pathfinder.unitField[targetIndex] == 0)
 			{
-				pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
-				pathfinder.SetUnitInUnitFieldWithAmount(GridPosToIndex(GetIndexes(newTarget), mapSize.x), 10);
+				//pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
+				pathfinder.SetUnitInUnitFieldWithAmount(targetIndex, 4);
 				movePathFinding.oldPos = moveLocation->currentPos;
 				movePathFinding.setOldPosUnitCost = false;
 				moveLocation->startPos = moveLocation->currentPos;
@@ -213,9 +227,9 @@ void SpawnArtilleryBullet(const uint shootObject, const int3 location, const Sho
 		.add<ArtilleryBullet>();
 }
 
-int GetTarget(float fireRange, int3 currentPos)
+int GetTarget(float fireRange, int3 currentPos, uint playerID = 0)
 {
-	for (auto it : ecs.filter(filterPlayer2))
+	for (auto it : ecs.filter(playerID == 1 ? filterPlayer2 : filterPlayer1))
 	{
 		for (auto index : it)
 		{
@@ -231,7 +245,7 @@ int GetTarget(float fireRange, int3 currentPos)
 			}
 		}
 	}
-	return -1;
+	return 0;
 }
 
 void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
@@ -243,15 +257,26 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 	}
 	World* world = GetWorld();
 	int3 currentPos = world->sprite[entity.id()]->currPos;
-	int enemyID = GetTarget(weaponData.fireRange,currentPos);
+	if (weaponData.target == 0)
+	{
+		weaponData.target = GetTarget(weaponData.fireRange, currentPos, weaponData.playerID);
+	}
+	else
+	{
+		flecs::entity targetEntity = ecs.entity(weaponData.target);
+		if (targetEntity.has<Dead>())
+		{
+			weaponData.target = GetTarget(weaponData.fireRange, currentPos, weaponData.playerID);
+		}
+	}
 	
 
-	if (enemyID > world->sprite.size() || enemyID < 0)
+	if (weaponData.target > world->sprite.size() || weaponData.target <= 0)
 	{
 		return;
 	}
 
-	int3 enemyPos = world->sprite[enemyID]->currPos;
+	int3 enemyPos = world->sprite[weaponData.target]->currPos;
 	if (entity.has< Rotation>())
 	{
 		float3 dir = normalize(make_float3(enemyPos - currentPos));
@@ -277,7 +302,7 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 	}
 
 	MoveLocation moveData{ weaponData.shotObjectSpeed,make_float3(currentPos),make_float3(currentPos), make_float3(enemyPos),false,0 };
-	ShotObjectData shotObjectData{ moveData, enemyID};
+	ShotObjectData shotObjectData{ moveData, weaponData.target, weaponData.playerID};
 	switch (weaponData.bulletType)
 	{
 		case BulletType::Bullet_Tank:
@@ -294,6 +319,26 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 	weaponData.currentReloadTime = weaponData.reloadTime;
 }
 
+void RemoveUnitFromUnitField(const flecs::entity entity)
+{
+	if (entity.has<MovePathFinding>() && entity.has<MoveLocation>())
+	{
+		const MoveLocation* moveLocation = entity.get< MoveLocation>();
+		pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->startPos), mapSize.x));
+		pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
+		pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->targetPos), mapSize.x));
+	}
+}
+
+void DisableChild(const flecs::entity entity)
+{
+	if (entity.has<ChildData>())
+	{
+		const ChildData* childData = entity.get<ChildData>();
+		ecs.entity(childData->childID).disable();
+	}
+}
+
 
 void MoveTankBullet(const flecs::entity entity, TankBullet& tankBullet, ShotObjectData& shotObjectData)
 {
@@ -303,16 +348,22 @@ void MoveTankBullet(const flecs::entity entity, TankBullet& tankBullet, ShotObje
 		MoveEntity(entity, shotObjectData.moveData);
 		if (shotObjectData.moveData.reachedTarget)
 		{
-			GetWorld()->DisableSprite(shotObjectData.targetID);
+			GetWorld()->DisableSprite(shotObjectData.targetID);		
+			RemoveUnitFromUnitField(target);
+			DisableChild(target);
 			target.add<Dead>();
+			target.disable();
+
 			GetWorld()->DisableSprite(entity.id());
 			entity.add<Dead>();
+			entity.disable();
 		}
 	}
 	else
 	{
 		GetWorld()->DisableSprite(entity.id());
 		entity.add<Dead>();
+		entity.disable();
 	}
 }
 
@@ -321,8 +372,38 @@ void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryB
 	MoveCurveEntity(entity, shotObjectData.moveData);
 	if (shotObjectData.moveData.reachedTarget)
 	{
-		GetWorld()->DisableSprite(entity.id());
+
+		World* world = GetWorld();
+		for (auto it : ecs.filter(filterPlayersAndBuildings))
+		{
+			for (auto index : it)
+			{
+				flecs::entity& currentEntity = it.entity(index);
+				float3 entityPos = make_float3(world->sprite[currentEntity.id()]->currPos);
+				entityPos.y = 0;
+				float3 targetPos = shotObjectData.moveData.targetPos;
+				targetPos.y = 0;
+				float distX = abs(entityPos.x - targetPos.x);
+				float distZ = abs(entityPos.z - targetPos.z);
+				if (distX <= 16 || distZ <= 16)
+				{
+					RemoveUnitFromUnitField(currentEntity);
+					DisableChild(currentEntity);
+					world->DisableSprite(it.entity(index).id());
+					currentEntity.add<Dead>();
+					currentEntity.disable();
+				}
+			}
+		}
+		world->DisableSprite(entity.id());
 		entity.add<Dead>();
+		entity.disable();
+		//Spawn model for blocking terrain
+		//Check if there is already a gab there
+		//TODO: Change this so it gets the terrain and removes part of it
+		pathfinder.SetCostOnCostField(GridPosToIndex(GetIndexes(shotObjectData.moveData.targetPos), mapSize.x));
+		uint spriteID = world->LoadSprite("assets/SetDressing/Mountain_High.vox");
+		world->MoveSpriteTo(spriteID, shotObjectData.moveData.targetPos.x, 16, shotObjectData.moveData.targetPos.z);
 	}
 }
 
@@ -333,6 +414,20 @@ void HandleChilds(const flecs::entity entity, ChildData& childData)
 	if (make_int3(newPos) != GetWorld()->sprite[childData.childID]->currPos)
 	{
 		GetWorld()->MoveSpriteTo(childData.childID, newPos.x, newPos.y, newPos.z);
+	}
+}
+
+void PatrollEntity(const flecs::entity entity, MovePathFinding& movePathfinding, PatrollData& patrollData)
+{
+	if (movePathfinding.reachedTarget && !entity.has<Dead>())
+	{
+		movePathfinding.target = patrollData.targets[patrollData.index];
+		movePathfinding.reachedTarget = false;
+		patrollData.index++;
+		if (patrollData.index >= patrollData.targets.size())
+		{
+			patrollData.index = 0;
+		}
 	}
 }
 
