@@ -6,6 +6,13 @@
 namespace Tmpl8
 {
 
+	struct TransparentInfo
+	{
+	public:
+		int   ID;
+		float Transparency;
+	};
+
 struct BrickInfo { uint zeroes; /* , location; */ };
 
 // Sprite system overview:
@@ -43,6 +50,8 @@ public:
 	float4 lastRotation = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	int3 pivot = make_int3(0, 0, 0);
+	uchar alpha = 7; // Set 3 least significant bits
+	uchar backupAlpha = 0;
 };
 
 class Particle
@@ -84,7 +93,7 @@ class Tile
 public:
 	Tile() = default;
 	Tile( const char* voxFile );
-	uchar voxels[BRICKSIZE];			// tile voxel data
+	uchar voxels[BRICKSIZE * 2];		// tile voxel data
 	uint zeroes;						// number of transparent voxels in the tile
 };
 
@@ -138,6 +147,7 @@ public:
 	void ScaleSprite(const uint idx, const uint3 scale);
 	void RotateSprite(const uint idx, const float x, const float y, const float z, const float a);
 	void SetSpritePivot(const uint idx, const int x, const int y, const int z);
+	void SetSpriteAlpha(const uint idx, const int a);
 	void EnableSprite(const uint idx);
 	void DisableSprite(const uint idx);
 	void DestroySprite(const uint idx);
@@ -174,11 +184,31 @@ public:
 		const uint cellIdx = bx + bz * GRIDWIDTH + by * GRIDWIDTH * GRIDDEPTH;
 		const uint g = grid[cellIdx];
 		if ((g & 1) == 0 /* this is currently a 'solid' grid cell */) return g >> 1;
+
+		const uint firIdx = ((g >> 1) / uint(BRICKS_PER_BUFFER));
+		const uint modIdx = ((g >> 1) % uint(BRICKS_PER_BUFFER));
 		// calculate the position of the voxel inside the brick
 		const uint lx = x & (BRICKDIM - 1), ly = y & (BRICKDIM - 1), lz = z & (BRICKDIM - 1);
-		return brick[(g >> 1) * BRICKSIZE + lx + ly * BRICKDIM + lz * BRICKDIM * BRICKDIM];
+		return bricks[firIdx][(modIdx * BRICKSIZE + lx + ly * BRICKDIM + lz * BRICKDIM * BRICKDIM) * 2];
 	}
-	__forceinline void Set( const uint x, const uint y, const uint z, const uint v /* actually an 8-bit value */ )
+	__forceinline uint GetM(const uint x, const uint y, const uint z)
+	{
+		// calculate brick location in top-level grid
+		const uint bx = (x / BRICKDIM) & (GRIDWIDTH - 1);
+		const uint by = (y / BRICKDIM) & (GRIDHEIGHT - 1);
+		const uint bz = (z / BRICKDIM) & (GRIDDEPTH - 1);
+		const uint cellIdx = bx + bz * GRIDWIDTH + by * GRIDWIDTH * GRIDDEPTH;
+		const uint g = grid[cellIdx];
+		if ((g & 1) == 0 /* this is currently a 'solid' grid cell */) return g >> 1;
+
+		const uint firIdx = ((g >> 1) / uint(BRICKS_PER_BUFFER));
+		const uint modIdx = ((g >> 1) % uint(BRICKS_PER_BUFFER));
+		// calculate the position of the voxel inside the brick
+		const uint lx = x & (BRICKDIM - 1), ly = y & (BRICKDIM - 1), lz = z & (BRICKDIM - 1);
+		return bricks[firIdx][(modIdx * BRICKSIZE + lx + ly * BRICKDIM + lz * BRICKDIM * BRICKDIM) * 2 + 1];
+	}
+
+	__forceinline void Set( const uint x, const uint y, const uint z, const uint v /* actually an 8-bit value */, const uchar a = 7 )
 	{
 		// calculate brick location in top-level grid
 		const uint bx = x / BRICKDIM & (GRIDWIDTH - 1);
@@ -191,14 +221,22 @@ public:
 		{
 			if (g1 == v) return; // about to set the same value; we're done here
 			const uint newIdx = NewBrick();
+			const uint firIdx = (newIdx / uint(BRICKS_PER_BUFFER));
+			const uint modIdx = (newIdx % uint(BRICKS_PER_BUFFER));
+
 		#if BRICKDIM == 8
 			// fully unrolled loop for writing the 512 bytes needed for a single brick, faster than memset
 			const __m256i zero8 = _mm256_set1_epi8( static_cast<char>(g1) );
-			__m256i* d8 = (__m256i*)(brick + newIdx * BRICKSIZE);
-			d8[0] = zero8, d8[1] = zero8, d8[2] = zero8, d8[3] = zero8;
-			d8[4] = zero8, d8[5] = zero8, d8[6] = zero8, d8[7] = zero8;
-			d8[8] = zero8, d8[9] = zero8, d8[10] = zero8, d8[11] = zero8;
+			__m256i* d8 = (__m256i*)(bricks[firIdx] + modIdx * 2 * BRICKSIZE);
+			d8[0]  = zero8, d8[1]  = zero8, d8[2]  = zero8, d8[3]  = zero8;
+			d8[4]  = zero8, d8[5]  = zero8, d8[6]  = zero8, d8[7]  = zero8;
+			d8[8]  = zero8, d8[9]  = zero8, d8[10] = zero8, d8[11] = zero8;
 			d8[12] = zero8, d8[13] = zero8, d8[14] = zero8, d8[15] = zero8;
+
+			d8[16] = zero8, d8[17] = zero8, d8[18] = zero8, d8[19] = zero8;
+			d8[20] = zero8, d8[21] = zero8, d8[22] = zero8, d8[23] = zero8;
+			d8[24] = zero8, d8[25] = zero8, d8[26] = zero8, d8[27] = zero8;
+			d8[28] = zero8, d8[29] = zero8, d8[30] = zero8, d8[31] = zero8;
 		#else
 			// let's keep the memset in case we want to experiment with other brick sizes
 			memset( brick + newIdx * BRICKSIZE, g1, BRICKSIZE ); // copy solid value to brick
@@ -208,13 +246,18 @@ public:
 			g1 = newIdx, grid[cellIdx] = g = (newIdx << 1) | 1;
 			// brickInfo[newIdx].location = cellIdx; // not used yet
 		}
+
+		const uint firIdx = (g1 / uint(BRICKS_PER_BUFFER));
+		const uint modIdx = (g1 % uint(BRICKS_PER_BUFFER));
+
 		// calculate the position of the voxel inside the brick
 		const uint lx = x & (BRICKDIM - 1), ly = y & (BRICKDIM - 1), lz = z & (BRICKDIM - 1);
-		const uint voxelIdx = g1 * BRICKSIZE + lx + ly * BRICKDIM + lz * BRICKDIM * BRICKDIM;
-		const uint cv = brick[voxelIdx];
+		const uint voxelIdx = (modIdx * BRICKSIZE + lx + ly * BRICKDIM + lz * BRICKDIM * BRICKDIM) * 2;
+		const uint cv = bricks[firIdx][voxelIdx];
 		if ((brickInfo[g1].zeroes += (cv != 0 && v == 0) - (cv == 0 && v != 0)) < BRICKSIZE)
 		{
-			brick[voxelIdx] = v;
+			bricks[firIdx][voxelIdx] = v;
+			bricks[firIdx][voxelIdx + 1] = a;
 			Mark( g1 ); // tag to be synced with GPU
 			return;
 		}
@@ -292,10 +335,10 @@ private:
 	// data members
 	mat4 camMat;						// camera matrix to be used for rendering
 	uint* grid = 0;						// pointer to host-side copy of the top-level grid
-	Buffer* brickBuffer;				// OpenCL buffer for the bricks
+	Buffer* brickBuffer;
 	Buffer* brickMaterialBuffer;
-	uchar* brick = 0;					// pointer to host-side copy of the bricks
-	uchar* brickMaterial = 0;
+	uchar* bricks[2];					// pointer to host-side copy of the bricks
+//	uchar* brickMaterial = 0;
 	uint* modified = 0;					// bitfield to mark bricks for synchronization
 	BrickInfo* brickInfo = 0;			// maintenance data for bricks: zeroes, location
 	volatile inline static LONG trashHead = BRICKCOUNT;	// thrash circular buffer tail

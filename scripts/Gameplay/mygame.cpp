@@ -29,6 +29,16 @@ void MyGame::Init()
 	pathfinder.point = world->LoadSprite("assets/Point.vox");
 	SpawnWorld();
 
+	for (uint x = 0; x < 4; x++)
+	{
+		for (uint y = 0; y < 6; y++)
+		{
+			string s = "assets/transparency/transparency_" + std::to_string(x) + "x" + std::to_string(y) + ".vox";
+			uint id = world->LoadSprite(s.c_str());
+			world->MoveSpriteTo(id, 600 + x * 10, 20, 200 + y * 10);
+		}
+	}
+
 	camera = Camera();
 	camera.SetPositionAndLookat(make_float3(500, 128, 500), make_float3(300, 1, 300));
 

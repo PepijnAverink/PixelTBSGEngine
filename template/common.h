@@ -18,10 +18,10 @@
 #define MAPDEPTH	1024	// total world size, z-axis
 #define BRICKDIM	8		// brick dimensions
 #define BDIMLOG2	3		// must be log2(BRICKDIM)
-#define MAXCOMMITS	8192	// maximum number of bricks that can be committed per frame
+#define MAXCOMMITS	4096// 8192	// maximum number of bricks that can be committed per frame
 
 // renderer performance setting: set to 0 for slower devices, up to 8 for fast GPUs
-#define GIRAYS		4
+#define GIRAYS		0
 
 // Panini projection, http://tksharpless.net/vedutismo/Pannini/panini.pdf via https://www.shadertoy.com/view/Wt3fzB
 #define PANINI		1
@@ -67,7 +67,11 @@ struct RenderParams
 #define GRIDSIZE	(GRIDWIDTH * GRIDHEIGHT * GRIDWIDTH)
 #define BRICKSIZE	(BRICKDIM * BRICKDIM * BRICKDIM)
 #define BRICKCOUNT	((MAPWIDTH / BRICKDIM) * (MAPHEIGHT / BRICKDIM) * (MAPDEPTH / BRICKDIM))
-#define BRICKCOMMITSIZE	(MAXCOMMITS * BRICKSIZE + MAXCOMMITS * 4 /* bytes */)
+#define BRICKCOMMITSIZE	(MAXCOMMITS * BRICKSIZE + MAXCOMMITS * 4 /* bytes */) * 2
+
+#define POWER17MASK 131072
+#define BUFFER_COUNT 2
+#define BRICKS_PER_BUFFER (BRICKCOUNT / BUFFER_COUNT)
 
 // constants
 #define PI			3.14159265358979323846264f
@@ -76,3 +80,5 @@ struct RenderParams
 #define TWOPI		6.28318530717958647692528f
 #define SQRT_PI_INV	0.56418958355f
 #define LARGE_FLOAT	1e34f
+
+// Probe GI

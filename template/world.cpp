@@ -60,11 +60,11 @@ World::World( const uint targetID0)
 	}
 
 	// create brick storage
-	brick = (uchar*)_aligned_malloc( BRICKCOUNT * BRICKSIZE, 64 );
-	brickMaterial = (uchar*)_aligned_malloc(BRICKCOUNT * BRICKSIZE, 64);
+	bricks[0] = (uchar*)_aligned_malloc( BRICKCOUNT * BRICKSIZE, 64 );
+	bricks[1] = (uchar*)_aligned_malloc(BRICKCOUNT * BRICKSIZE, 64);
 
-	brickBuffer = new Buffer( (BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, brick );
-	brickMaterialBuffer = new Buffer((BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, brickMaterial);
+	brickBuffer = new Buffer( (BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, bricks[0]);
+	brickMaterialBuffer = new Buffer((BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, bricks[1]);
 
 	brickInfo = new BrickInfo[BRICKCOUNT];
 	// create a cyclic array for unused bricks (all of them, for now)
@@ -98,9 +98,11 @@ World::World( const uint targetID0)
 	renderer->SetArgument( 2, paramBuffer );
 	renderer->SetArgument( 3, &gridMap );
 	renderer->SetArgument( 4, brickBuffer );
-	renderer->SetArgument( 5, sky );
+	renderer->SetArgument( 5, brickMaterialBuffer);
+	renderer->SetArgument( 6, sky );
 	committer->SetArgument( 1, &devmem );
 	committer->SetArgument( 2, brickBuffer );
+	committer->SetArgument( 3, brickMaterialBuffer);
 	kernel->SetArgument(0, screen);
 	kernel->SetArgument(1, &diffuseOutput);
 	kernel->SetArgument(2, &globalIlluminationOutput);
@@ -115,7 +117,7 @@ World::World( const uint targetID0)
 	blueNoise = new Buffer( 65536 * 5, Buffer::READONLY, data32 );
 	blueNoise->CopyToDevice();
 	delete data32;
-	renderer->SetArgument( 6, blueNoise );
+	renderer->SetArgument( 7, blueNoise );
 #endif
 	targetTextureID = targetID0;
 	// load a bitmap font for the print command
@@ -126,7 +128,8 @@ World::World( const uint targetID0)
 // ----------------------------------------------------------------------------
 World::~World()
 {
-	_aligned_free( brick );
+	_aligned_free(bricks[0]);
+	_aligned_free(bricks[1]);
 }
 
 // World::DummyWorld: box
@@ -358,6 +361,7 @@ uint World::LoadSprite( const char* voxFile )
 	fread( &header.N, 1, 4, file ); // eat MAIN chunk num bytes of chunk content (N)
 	fread( &header.N, 1, 4, file ); // eat MAIN chunk num bytes of children chunks (M)
 	// initialize the palette to the default palette
+	vector<TransparentInfo> transparentInfos;
 	static uint palette[256];
 	static uint default_palette[256] = {
 		0x00000000, 0xffffffff, 0xffccffff, 0xff99ffff, 0xff66ffff, 0xff33ffff, 0xff00ffff, 0xffffccff, 0xffccccff, 0xff99ccff, 0xff66ccff, 0xff33ccff, 0xff00ccff, 0xffff99ff, 0xffcc99ff, 0xff9999ff,
@@ -379,16 +383,7 @@ uint World::LoadSprite( const char* voxFile )
 	};
 	memcpy( palette, default_palette, 1024 );
 	// create the sprite
-	bool newCreated = true;
-	Sprite* newSprite;
-	if (freelist.size() > 1)
-	{
-		newSprite = sprite[freelist[0]];
-		freelist.erase(freelist.begin());
-		newCreated = false;
-	}
-	else
-		newSprite = new Sprite();
+	Sprite* newSprite = new Sprite();
 	SpriteFrame* frame = 0;
 	int frameCount = 1; // will be overwritten if we encounter a 'PACK' chunk
 	// load chunks
@@ -410,12 +405,14 @@ uint World::LoadSprite( const char* voxFile )
 			uint N;
 			int3 s = frame->size;
 			fread( &N, 1, 4, file );
-			frame->buffer = new unsigned char[s.x * s.y * s.z];
-			memset( frame->buffer, 0, s.x * s.y * s.z );
+			frame->buffer = new unsigned char[s.x * s.y * s.z * 2];
+			memset( frame->buffer, 0, s.x * s.y * s.z * 2);
 			for (uint i = 0; i < N; i++)
 			{
 				fread( &xyzi, 1, 4, file );
-				frame->buffer[xyzi.x + xyzi.z * s.x + xyzi.y * s.x * s.y] = xyzi.i;
+
+				uint ID = xyzi.x + xyzi.z * s.x + xyzi.y * s.x * s.y;
+				frame->buffer[ID * 2] = xyzi.i;
 			}
 			if (newSprite->frame.size() == frameCount) FatalError( "LoadSprite( %s ):\nBad frame count.", voxFile );
 			newSprite->frame.push_back( frame );
@@ -425,30 +422,97 @@ uint World::LoadSprite( const char* voxFile )
 		{
 			fread( palette, 4, 256, file );
 		}
-		else if (!strncmp( header.name, "MATT", 4 ))
+		else if (!strncmp( header.name, "MATL", 4 ))
 		{
-			int dummy[8192]; // we are not supporting materials for now.
-			fread( dummy, 1, header.N, file );
+			int palleteIndex;
+			fread(&palleteIndex, sizeof(int), 1, file);
+
+			int pairCount;
+			fread(&pairCount, sizeof(int), 1, file);
+
+			char dummy[8192];
+			size_t size = (size_t)header.N - (sizeof(int) * 2);
+			fread(&dummy[0], sizeof(char), size, file);
+
+			int ij = 0;
+			bool t_ = false;
+			bool res = true;
+			bool glass = false;
+			string result = "";
+			for (int e = 0; e < size; e++)
+			{
+				if (res == true)
+				{
+					res = false;
+					e ++;
+					continue;
+				}
+				if (dummy[e] != '\0') {
+						result += dummy[e];
+				}
+				else {
+					if (result.size() > 0)
+						result.pop_back();
+
+
+					if (glass)
+					{
+						TransparentInfo info;
+						info.ID = palleteIndex;
+						info.Transparency = stof(result);
+
+						transparentInfos.push_back(info);
+						glass = false;
+					}
+
+					if (result == "_trans")
+					{
+						glass = true;
+					}
+					res = true;
+					result = "";
+				}
+
+			}
+
+			int index = 0;
 		}
 		else
 		{
+			//printf("Unknown chunk: %s\n", header.name);
+
 			// digest unsupported chunk
 			int dummy[8192];
 			fread(dummy, 1, header.N, file);
 		}
+		//else break; // FatalError( "LoadSprite( %s ):\nUnknown chunk.", voxFile );
 	}
 	fclose( file );
 	// finalize new sprite
 	int3 maxSize = make_int3( 0 );
-	for (int i = 0; i < frameCount; i++)
+	for (int ij = 0; ij < frameCount; ij++)
 	{
-		SpriteFrame* frame = newSprite->frame[i];
-		for (int s = frame->size.x * frame->size.y * frame->size.z, i = 0; i < s; i++) if (frame->buffer[i])
+		SpriteFrame* frame = newSprite->frame[ij];
+		for (int s = frame->size.x * frame->size.y * frame->size.z, i = 0; i < s; i++) 
+			if (frame->buffer[i * 2])
 		{
-			const uint c = palette[frame->buffer[i]];
-			const uint red = ((c >> 16) & 255) >> 6, green = ((c >> 8) & 255) >> 5, blue = (c & 255) >> 5;
-			frame->buffer[i] = (blue << 5) + (green << 2) + red;
+			const int ID = frame->buffer[i * 2];
+
+			const uint c = palette[ID - 1];
+			const uint blue = ((c >> 16) & 255) >> 6, green = ((c >> 8) & 255) >> 5, red = (c & 255) >> 5;
+			frame->buffer[i * 2] = (red << 5) + (green << 2) + blue;
+
+			frame->buffer[i * 2 + 1] = 7;
+			for (uint e = 0; e < transparentInfos.size(); e++)
+			{
+				if (transparentInfos[e].ID == ID)
+				{
+					uchar t = uchar((1.0f - transparentInfos[e].Transparency) * 7.0f);
+					frame->buffer[i * 2 + 1] = t;
+				}
+			}
 		}
+
 		maxSize.x = max( maxSize.x, frame->size.x );
 		maxSize.y = max( maxSize.y, frame->size.y );
 		maxSize.z = max( maxSize.z, frame->size.z );
@@ -456,10 +520,10 @@ uint World::LoadSprite( const char* voxFile )
 	// create the backup frame for sprite movement
 	SpriteFrame* backupFrame = new SpriteFrame();
 	backupFrame->size = maxSize;
-	backupFrame->buffer = new uchar[maxSize.x * maxSize.y * maxSize.z];
+	backupFrame->buffer = new uchar[maxSize.x * maxSize.y * maxSize.z * 2];
 	newSprite->backup = backupFrame;
-	if (newCreated)
-		sprite.push_back( newSprite );
+
+	sprite.push_back( newSprite );
 	// all done, return sprite index
 	return (uint)sprite.size() - 1;
 }
@@ -469,27 +533,17 @@ uint World::LoadSprite( const char* voxFile )
 uint World::CloneSprite( const uint idx )
 {
 	// clone frame data, wich contain pointers to shared frame data
-	bool newCreated = true;
-	Sprite* newSprite;
-	if (freelist.size() > 1)
-	{
-		newSprite = sprite[freelist[0]];
-		freelist.erase(freelist.begin());
-		newCreated = false;
-	}
-	else
-		newSprite = new Sprite();
+	Sprite* newSprite = new Sprite();
 
 	if (idx >= sprite.size()) return 0;
 	newSprite->frame = sprite[idx]->frame;
 	// clone backup frame, which will be unique per instance
 	SpriteFrame* backupFrame = new SpriteFrame();
 	backupFrame->size = sprite[idx]->backup->size;
-	backupFrame->buffer = new uchar[backupFrame->size.x * backupFrame->size.y * backupFrame->size.z];
+	backupFrame->buffer = new uchar[backupFrame->size.x * backupFrame->size.y * backupFrame->size.z * 2];
 	newSprite->backup = backupFrame;
 
-	if (newCreated)
-		sprite.push_back( newSprite );
+	sprite.push_back( newSprite );
 	return (uint)sprite.size() - 1;
 }
 
@@ -516,6 +570,8 @@ void World::RemoveSprite( const uint idx )
 	
 	const float4& r = sprite[idx]->lastRotation;
 
+	const uchar bal = sprite[idx]->backupAlpha;
+
 	mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
 
 	for (int i = s.x * s.y * s.z - 1, w = s.z - 1; w >= 0; w--) for (int v = s.y - 1; v >= 0; v--) for (int u = s.x - 1; u >= 0; u--, i--)
@@ -527,11 +583,11 @@ void World::RemoveSprite( const uint idx )
 	
 			int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + p;
 	
-			Set(p2.x, p2.y, p2.z, backup->buffer[i]);
+			Set(p2.x, p2.y, p2.z, backup->buffer[i * 2], backup->buffer[i * 2 + 1]);
 		}
 		else
 		{
-			Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, backup->buffer[i]);
+			Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, backup->buffer[i * 2], backup->buffer[i * 2 + 1]);
 		}
 	}
 }
@@ -551,11 +607,14 @@ void World::DrawSprite( const uint idx )
 		const uint3& c = sprite[idx]->scale;
 		const float4& r = sprite[idx]->rotation;
 
+		const uchar al = sprite[idx]->alpha;
+
 		mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
 
 		for (int i = 0, w = 0; w < s.z; w++) for (int v = 0; v < s.y; v++) for (int u = 0; u < s.x; u++, i++)
 		{
-			const uint voxel = frame->buffer[i];
+			const uint voxel = frame->buffer[i * 2];
+			const uchar mat = frame->buffer[i * 2 + 1];
 
 			if (voxel != 0)
 			{
@@ -568,13 +627,15 @@ void World::DrawSprite( const uint idx )
 				
 						int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
 				
-						backup->buffer[i] = Get(p2.x, p2.y, p2.z);
-						Set(p2.x, p2.y, p2.z, voxel);
+						backup->buffer[i * 2] = Get(p2.x, p2.y, p2.z);
+						backup->buffer[i * 2 + 1] = GetM(p2.x, p2.y, p2.z);
+						Set(p2.x, p2.y, p2.z, voxel, mat);
 					}
 					else
 					{
-						backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
-						Set(pos.x + u, pos.y + v, pos.z + w, voxel);
+						backup->buffer[i * 2] = Get(pos.x + u, pos.y + v, pos.z + w);
+						backup->buffer[i * 2 + 1] = GetM(pos.x + u, pos.y + v, pos.z + w);
+						Set(pos.x + u, pos.y + v, pos.z + w, voxel, mat);
 					}
 				//	else
 				//		Set(pos.x + u * c.x + ui, pos.y + v * c.y + vi, pos.z + w * c.z + wi, voxel);
@@ -588,10 +649,14 @@ void World::DrawSprite( const uint idx )
 					float4 p1 = p0 * matrix;
 
 					int3 p2 = make_int3(pos.x + p1.x, pos.y + p1.y, pos.z + p1.z) + p;
-					backup->buffer[i] = Get(p2.x, p2.y, p2.z);
+					backup->buffer[i * 2] = Get(p2.x, p2.y, p2.z);
+					backup->buffer[i * 2 + 1] = GetM(p2.x, p2.y, p2.z);
 				}
 				else
-					backup->buffer[i] = Get(pos.x + u, pos.y + v, pos.z + w);
+				{
+					backup->buffer[i * 2] = Get(pos.x + u, pos.y + v, pos.z + w);
+					backup->buffer[i * 2 + 1] = GetM(pos.x + u, pos.y + v, pos.z + w);
+				}
 			}
 		}
 	}
@@ -632,6 +697,11 @@ void Tmpl8::World::RotateSprite(const uint idx, const float x, const float y, co
 void Tmpl8::World::SetSpritePivot(const uint idx, const int x, const int y, const int z)
 {
 	sprite[idx]->pivot = make_int3(x, y, z);
+}
+
+void Tmpl8::World::SetSpriteAlpha(const uint idx, const int a)
+{
+	sprite[idx]->alpha = a;
 }
 
 void Tmpl8::World::EnableSprite(const uint idx)
@@ -786,7 +856,12 @@ void World::DrawTileVoxels( const uint cellIdx, const uchar* voxels, const uint 
 	uint brickIdx;
 	if ((g & 1) == 1) brickIdx = g >> 1; else brickIdx = NewBrick(), grid[cellIdx] = (brickIdx << 1) | 1;
 	// copy tile data to brick
-	memcpy( brick + brickIdx * BRICKSIZE, voxels, BRICKSIZE );
+	
+	const uint firIdx = (brickIdx / uint(BRICKS_PER_BUFFER));
+	const uint modIdx = (brickIdx % uint(BRICKS_PER_BUFFER));
+
+	memcpy( bricks[firIdx] + modIdx * BRICKSIZE * 2, voxels, BRICKSIZE * 2 );
+
 	Mark( brickIdx );
 	brickInfo[brickIdx].zeroes = zeroes;
 }
@@ -848,67 +923,67 @@ float4 FixZeroDeltas( float4 V )
 }
 uint World::TraceRay( float4 A, const float4 B, float& dist, float3& N, int steps )
 {
-	const float4 V = FixZeroDeltas( B ), rV = make_float4( 1 / V.x, 1 / V.y, 1 / V.z, 1 );
-	const bool originOutsideGrid = A.x < 0 || A.y < 0 || A.z < 0 || A.x > MAPWIDTH || A.y > MAPHEIGHT || A.z > MAPDEPTH;
-	if (steps == 999999 && originOutsideGrid)
-	{
-		// use slab test to clip ray origin against scene AABB
-		const float tx1 = -A.x * rV.x, tx2 = (MAPWIDTH - A.x) * rV.x;
-		float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
-		const float ty1 = -A.y * rV.y, ty2 = (MAPHEIGHT - A.y) * rV.y;
-		tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
-		const float tz1 = -A.z * rV.z, tz2 = (MAPDEPTH - A.z) * rV.z;
-		tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
-		if (tmax < tmin || tmax <= 0) return 0; /* ray misses scene */ else A += tmin * V; // new ray entry point
-	}
-	uint4 pos = make_uint4( clamp( (int)A.x, 0, MAPWIDTH - 1 ), clamp( (int)A.y, 0, MAPHEIGHT - 1 ), clamp( (int)A.z, 0, MAPDEPTH - 1 ), 0 );
-	const int bits = SELECT( 4, 34, V.x > 0 ) + SELECT( 3072, 10752, V.y > 0 ) + SELECT( 1310720, 3276800, V.z > 0 ); // magic
-	float tmx = ((float)((pos.x & BPMX) + ((bits >> (5 - BDIMLOG2)) & (1 << BDIMLOG2))) - A.x) * rV.x;
-	float tmy = ((float)((pos.y & BPMY) + ((bits >> (13 - BDIMLOG2)) & (1 << BDIMLOG2))) - A.y) * rV.y;
-	float tmz = ((float)((pos.z & BPMZ) + ((bits >> (21 - BDIMLOG2)) & (1 << BDIMLOG2))) - A.z) * rV.z, t = 0;
-	const float tdx = (float)DIR_X * rV.x, tdy = (float)DIR_Y * rV.y, tdz = (float)DIR_Z * rV.z;
-	uint last = 0;
-	while (true)
-	{
-		// check main grid
-		const uint o = grid[pos.x / BRICKDIM + (pos.z / BRICKDIM) * GRIDWIDTH + (pos.y / BRICKDIM) * GRIDWIDTH * GRIDDEPTH];
-		if (o != 0) if ((o & 1) == 0) /* solid */
-		{
-			dist = t, N = make_float3( (float)((last == 0) * DIR_X), (float)((last == 1) * DIR_Y), (float)((last == 2) * DIR_Z) ) * -1.0f;
-			return o >> 1;
-		}
-		else // brick
-		{
-			const float4 I = A + V * t;
-			uint p = (clamp( (uint)I.x, pos.x & BPMX, (pos.x & BPMX) + BMSK ) << 20) +
-				(clamp( (uint)I.y, pos.y & BPMY, (pos.y & BPMY) + BMSK ) << 10) +
-				clamp( (uint)I.z, pos.z & BPMZ, (pos.z & BPMZ) + BMSK );
-			const uint pn = p & TOPMASK3;
-			float dmx = ((float)((p >> 20) + OFFS_X) - A.x) * rV.x;
-			float dmy = ((float)(((p >> 10) & 1023) + OFFS_Y) - A.y) * rV.y;
-			float dmz = ((float)((p & 1023) + OFFS_Z) - A.z) * rV.z, d = t;
-			do
-			{
-				const uint idx = (o >> 1) * BRICKSIZE + ((p >> 20) & BMSK) + ((p >> 10) & BMSK) * BRICKDIM + (p & BMSK) * BDIM2;
-				const unsigned int color = brick[idx];
-				if (color != 0U)
-				{
-					dist = d, N = make_float3( (float)((last == 0) * DIR_X), (float)((last == 1) * DIR_Y), (float)((last == 2) * DIR_Z) ) * -1.0f;
-					return color;
-				}
-				d = min( dmx, min( dmy, dmz ) );
-				if (d == dmx) dmx += tdx, p += DIR_X << 20, last = 0;
-				if (d == dmy) dmy += tdy, p += DIR_Y << 10, last = 1;
-				if (d == dmz) dmz += tdz, p += DIR_Z, last = 2;
-			} while ((p & TOPMASK3) == pn);
-		}
-		if (!--steps) break;
-		t = min( tmx, min( tmy, tmz ) );
-		if (t == tmx) tmx += tdx * BRICKDIM, pos.x += DIR_X * BRICKDIM, last = 0;
-		if (t == tmy) tmy += tdy * BRICKDIM, pos.y += DIR_Y * BRICKDIM, last = 1;
-		if (t == tmz) tmz += tdz * BRICKDIM, pos.z += DIR_Z * BRICKDIM, last = 2;
-		if ((pos.x & (65536 - MAPWIDTH)) + (pos.y & (65536 - MAPWIDTH)) + (pos.z & (65536 - MAPWIDTH))) break;
-	}
+	//const float4 V = FixZeroDeltas( B ), rV = make_float4( 1 / V.x, 1 / V.y, 1 / V.z, 1 );
+	//const bool originOutsideGrid = A.x < 0 || A.y < 0 || A.z < 0 || A.x > MAPWIDTH || A.y > MAPHEIGHT || A.z > MAPDEPTH;
+	//if (steps == 999999 && originOutsideGrid)
+	//{
+	//	// use slab test to clip ray origin against scene AABB
+	//	const float tx1 = -A.x * rV.x, tx2 = (MAPWIDTH - A.x) * rV.x;
+	//	float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
+	//	const float ty1 = -A.y * rV.y, ty2 = (MAPHEIGHT - A.y) * rV.y;
+	//	tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
+	//	const float tz1 = -A.z * rV.z, tz2 = (MAPDEPTH - A.z) * rV.z;
+	//	tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
+	//	if (tmax < tmin || tmax <= 0) return 0; /* ray misses scene */ else A += tmin * V; // new ray entry point
+	//}
+	//uint4 pos = make_uint4( clamp( (int)A.x, 0, MAPWIDTH - 1 ), clamp( (int)A.y, 0, MAPHEIGHT - 1 ), clamp( (int)A.z, 0, MAPDEPTH - 1 ), 0 );
+	//const int bits = SELECT( 4, 34, V.x > 0 ) + SELECT( 3072, 10752, V.y > 0 ) + SELECT( 1310720, 3276800, V.z > 0 ); // magic
+	//float tmx = ((float)((pos.x & BPMX) + ((bits >> (5 - BDIMLOG2)) & (1 << BDIMLOG2))) - A.x) * rV.x;
+	//float tmy = ((float)((pos.y & BPMY) + ((bits >> (13 - BDIMLOG2)) & (1 << BDIMLOG2))) - A.y) * rV.y;
+	//float tmz = ((float)((pos.z & BPMZ) + ((bits >> (21 - BDIMLOG2)) & (1 << BDIMLOG2))) - A.z) * rV.z, t = 0;
+	//const float tdx = (float)DIR_X * rV.x, tdy = (float)DIR_Y * rV.y, tdz = (float)DIR_Z * rV.z;
+	//uint last = 0;
+	//while (true)
+	//{
+	//	// check main grid
+	//	const uint o = grid[pos.x / BRICKDIM + (pos.z / BRICKDIM) * GRIDWIDTH + (pos.y / BRICKDIM) * GRIDWIDTH * GRIDDEPTH];
+	//	if (o != 0) if ((o & 1) == 0) /* solid */
+	//	{
+	//		dist = t, N = make_float3( (float)((last == 0) * DIR_X), (float)((last == 1) * DIR_Y), (float)((last == 2) * DIR_Z) ) * -1.0f;
+	//		return o >> 1;
+	//	}
+	//	else // brick
+	//	{
+	//		const float4 I = A + V * t;
+	//		uint p = (clamp( (uint)I.x, pos.x & BPMX, (pos.x & BPMX) + BMSK ) << 20) +
+	//			(clamp( (uint)I.y, pos.y & BPMY, (pos.y & BPMY) + BMSK ) << 10) +
+	//			clamp( (uint)I.z, pos.z & BPMZ, (pos.z & BPMZ) + BMSK );
+	//		const uint pn = p & TOPMASK3;
+	//		float dmx = ((float)((p >> 20) + OFFS_X) - A.x) * rV.x;
+	//		float dmy = ((float)(((p >> 10) & 1023) + OFFS_Y) - A.y) * rV.y;
+	//		float dmz = ((float)((p & 1023) + OFFS_Z) - A.z) * rV.z, d = t;
+	//		do
+	//		{
+	//			const uint idx = (o >> 1) * BRICKSIZE + ((p >> 20) & BMSK) + ((p >> 10) & BMSK) * BRICKDIM + (p & BMSK) * BDIM2;
+	//			const unsigned int color = bricks[0][idx];
+	//			if (color != 0U)
+	//			{
+	//				dist = d, N = make_float3( (float)((last == 0) * DIR_X), (float)((last == 1) * DIR_Y), (float)((last == 2) * DIR_Z) ) * -1.0f;
+	//				return color;
+	//			}
+	//			d = min( dmx, min( dmy, dmz ) );
+	//			if (d == dmx) dmx += tdx, p += DIR_X << 20, last = 0;
+	//			if (d == dmy) dmy += tdy, p += DIR_Y << 10, last = 1;
+	//			if (d == dmz) dmz += tdz, p += DIR_Z, last = 2;
+	//		} while ((p & TOPMASK3) == pn);
+	//	}
+	//	if (!--steps) break;
+	//	t = min( tmx, min( tmy, tmz ) );
+	//	if (t == tmx) tmx += tdx * BRICKDIM, pos.x += DIR_X * BRICKDIM, last = 0;
+	//	if (t == tmy) tmy += tdy * BRICKDIM, pos.y += DIR_Y * BRICKDIM, last = 1;
+	//	if (t == tmz) tmz += tdz * BRICKDIM, pos.z += DIR_Z * BRICKDIM, last = 2;
+	//	if ((pos.x & (65536 - MAPWIDTH)) + (pos.y & (65536 - MAPWIDTH)) + (pos.z & (65536 - MAPWIDTH))) break;
+	//}
 	return 0U;
 }
 
@@ -920,101 +995,101 @@ static float3 packet_N[64];
 // ----------------------------------------------------------------------------
 void World::TracePacket( float3 O, const float3 P1, const float3 P2, const float3 P3, const float3 P4 )
 {
-	// Ray Tracing Animated Scenes using Coherent Grid Traversal, Wald et al., 2006
-	// 0. Generate tile rays, TODO: postpone until actually needed?
-	float3 D[64], rD[64];
-	uint b[64];
-	for (int i = 0, y = 0; y < 8; y++) for (int x = 0; x < 8; x++, i++)
-	{
-		float3 P = P1 + (P2 - P1) * ((float)x / 7.0f) + (P4 - P1) * ((float)y / 7.0f);
-		D[i] = normalize( P - O );
-		rD[i] = make_float3( 1.0f / D[i].x, 1.0f / D[i].y, 1.0f / D[i].z );
-		packet_t[i] = 1e34f;
-		b[i] = SELECT( 4, 34, D[i].x > 0 ) + SELECT( 3072, 10752, D[i].y > 0 ) + SELECT( 1310720, 3276800, D[i].z > 0 ); // magic
-	}
-	// 1. Find dominant axis
-	const float3 D1 = normalize( P1 - O ), D2 = normalize( P2 - O ); // TODO: normalization not needed?
-	const float3 D3 = normalize( P3 - O ), D4 = normalize( P4 - O );
-	uint k = dominantAxis( D1 );
-	if (k == 0)
-	{
-		// x is major axis; u = y and v = z.
-		const float4 delta = make_float4(
-			min( min( D1.y, D2.y ), min( D3.y, D4.y ) ), max( max( D1.y, D2.y ), max( D3.y, D4.y ) ),
-			min( min( D1.z, D2.z ), min( D3.z, D4.z ) ), max( max( D1.z, D2.z ), max( D3.z, D4.z ) )
-		);
-		// start stepping
-		int w = (int)O.x / 8, dir = D1.x > 0 ? 1 : -1;
-		float4 frustum = make_float4( O.y, O.y, O.z, O.z );
-		while (1)
-		{
-			frustum += delta;
-			int4 uvcells = make_int4( frustum * (1.0f / BRICKDIM) );
-			uvcells.x = max( 0, uvcells.x );
-			uvcells.y = max( 0, uvcells.y );
-			uvcells.z = min( GRIDHEIGHT - 1, uvcells.z );
-			uvcells.w = min( GRIDDEPTH - 1, uvcells.w );
-			for (int v = uvcells.z; v <= uvcells.w; v++) for (int u = uvcells.x; u <= uvcells.y; u++)
-			{
-				const uint g = grid[w + v * GRIDWIDTH + u * GRIDWIDTH * GRIDDEPTH];
-				if (g)
-				{
-					for (int i = 0; i < 64; i++) if (packet_t[i] > 1e33f /* ray did not find a voxel yet */)
-					{
-						const uint bits = b[i];
-						const float tdx = (float)DIR_X * rD[i].x, tdy = (float)DIR_Y * rD[i].y, tdz = (float)DIR_Z * rD[i].z;
-						uint last = 0;
-						// TODO: we can probably just test three planes based on 'bits'?
-						const float tx1 = ((float)w * BRICKDIM - O.x) * rD[i].x, tx2 = (((float)w * BRICKDIM + BRICKDIM) - O.x) * rD[i].x;
-						float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
-						const float ty1 = ((float)u * BRICKDIM - O.y) * rD[i].y, ty2 = (((float)u * BRICKDIM + BRICKDIM) - O.y) * rD[i].y;
-						tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
-						const float tz1 = ((float)v * BRICKDIM - O.z) * rD[i].z, tz2 = (((float)v * BRICKDIM + BRICKDIM) - O.z) * rD[i].z;
-						tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
-						if (tmax > tmin && tmax > 0 /* TODO: tmax > 0 superfluous? */)
-						{
-							float3 E = O + tmin * D[i]; // this is where the ray enters the voxel
-							if (g >> 1)
-							{
-								// solid supervoxel; finalize ray
-								packet_t[i] = tmin;
-								packet_N[i] = make_float3( 0, 1, 0 ); // TODO: determine actual normal
-								packet_voxel[i] = g >> 1;
-							}
-							else
-							{
-								// traverse brick
-								uint p = (clamp( (uint)E.x, (uint)w * BRICKDIM, (uint)w * BRICKDIM + BRICKDIM - 1 ) << 20) +
-									(clamp( (uint)E.y, (uint)u * BRICKDIM, (uint)u * BRICKDIM + BRICKDIM - 1 ) << 10) +
-									clamp( (uint)E.z, (uint)v * BRICKDIM, (uint)v * BRICKDIM + BRICKDIM - 1 );
-								const uint pn = p & TOPMASK3;
-								float dmx = ((float)((p >> 20) + OFFS_X) - O.x) * rD[i].x;
-								float dmy = ((float)(((p >> 10) & 1023) + OFFS_Y) - O.y) * rD[i].y;
-								float dmz = ((float)((p & 1023) + OFFS_Z) - O.z) * rD[i].z, d = tmin;
-								do
-								{
-									const uint idx = (g >> 1) * BRICKSIZE + ((p >> 20) & BMSK) + ((p >> 10) & BMSK) * BRICKDIM + (p & BMSK) * BDIM2;
-									const unsigned int c = brick[idx];
-									if (c != 0U)
-									{
-										packet_t[i] = d;
-										packet_N[i] = make_float3( (float)((last == 0) * DIR_X), (float)((last == 1) * DIR_Y), (float)((last == 2) * DIR_Z) ) * -1.0f;
-										packet_voxel[i] = c;
-									}
-									d = min( dmx, min( dmy, dmz ) );
-									if (d == dmx) dmx += tdx, p += DIR_X << 20, last = 0;
-									if (d == dmy) dmy += tdy, p += DIR_Y << 10, last = 1;
-									if (d == dmz) dmz += tdz, p += DIR_Z, last = 2;
-								} while ((p & TOPMASK3) == pn);
-							}
-						}
-					}
-				}
-			}
-			w += dir;
-			if (w < 0 || w >= GRIDWIDTH) break;
-		}
-	}
+//	// Ray Tracing Animated Scenes using Coherent Grid Traversal, Wald et al., 2006
+//	// 0. Generate tile rays, TODO: postpone until actually needed?
+//	float3 D[64], rD[64];
+//	uint b[64];
+//	for (int i = 0, y = 0; y < 8; y++) for (int x = 0; x < 8; x++, i++)
+//	{
+//		float3 P = P1 + (P2 - P1) * ((float)x / 7.0f) + (P4 - P1) * ((float)y / 7.0f);
+//		D[i] = normalize( P - O );
+//		rD[i] = make_float3( 1.0f / D[i].x, 1.0f / D[i].y, 1.0f / D[i].z );
+//		packet_t[i] = 1e34f;
+//		b[i] = SELECT( 4, 34, D[i].x > 0 ) + SELECT( 3072, 10752, D[i].y > 0 ) + SELECT( 1310720, 3276800, D[i].z > 0 ); // magic
+//	}
+//	// 1. Find dominant axis
+//	const float3 D1 = normalize( P1 - O ), D2 = normalize( P2 - O ); // TODO: normalization not needed?
+//	const float3 D3 = normalize( P3 - O ), D4 = normalize( P4 - O );
+//	uint k = dominantAxis( D1 );
+//	if (k == 0)
+//	{
+//		// x is major axis; u = y and v = z.
+//		const float4 delta = make_float4(
+//			min( min( D1.y, D2.y ), min( D3.y, D4.y ) ), max( max( D1.y, D2.y ), max( D3.y, D4.y ) ),
+//			min( min( D1.z, D2.z ), min( D3.z, D4.z ) ), max( max( D1.z, D2.z ), max( D3.z, D4.z ) )
+//		);
+//		// start stepping
+//		int w = (int)O.x / 8, dir = D1.x > 0 ? 1 : -1;
+//		float4 frustum = make_float4( O.y, O.y, O.z, O.z );
+//		while (1)
+//		{
+//			frustum += delta;
+//			int4 uvcells = make_int4( frustum * (1.0f / BRICKDIM) );
+//			uvcells.x = max( 0, uvcells.x );
+//			uvcells.y = max( 0, uvcells.y );
+//			uvcells.z = min( GRIDHEIGHT - 1, uvcells.z );
+//			uvcells.w = min( GRIDDEPTH - 1, uvcells.w );
+//			for (int v = uvcells.z; v <= uvcells.w; v++) for (int u = uvcells.x; u <= uvcells.y; u++)
+//			{
+//				const uint g = grid[w + v * GRIDWIDTH + u * GRIDWIDTH * GRIDDEPTH];
+//				if (g)
+//				{
+//					for (int i = 0; i < 64; i++) if (packet_t[i] > 1e33f /* ray did not find a voxel yet */)
+//					{
+//						const uint bits = b[i];
+//						const float tdx = (float)DIR_X * rD[i].x, tdy = (float)DIR_Y * rD[i].y, tdz = (float)DIR_Z * rD[i].z;
+//						uint last = 0;
+//						// TODO: we can probably just test three planes based on 'bits'?
+//						const float tx1 = ((float)w * BRICKDIM - O.x) * rD[i].x, tx2 = (((float)w * BRICKDIM + BRICKDIM) - O.x) * rD[i].x;
+//						float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
+//						const float ty1 = ((float)u * BRICKDIM - O.y) * rD[i].y, ty2 = (((float)u * BRICKDIM + BRICKDIM) - O.y) * rD[i].y;
+//						tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
+//						const float tz1 = ((float)v * BRICKDIM - O.z) * rD[i].z, tz2 = (((float)v * BRICKDIM + BRICKDIM) - O.z) * rD[i].z;
+//						tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
+//						if (tmax > tmin && tmax > 0 /* TODO: tmax > 0 superfluous? */)
+//						{
+//							float3 E = O + tmin * D[i]; // this is where the ray enters the voxel
+//							if (g >> 1)
+//							{
+//								// solid supervoxel; finalize ray
+//								packet_t[i] = tmin;
+//								packet_N[i] = make_float3( 0, 1, 0 ); // TODO: determine actual normal
+//								packet_voxel[i] = g >> 1;
+//							}
+//							else
+//							{
+//								// traverse brick
+//								uint p = (clamp( (uint)E.x, (uint)w * BRICKDIM, (uint)w * BRICKDIM + BRICKDIM - 1 ) << 20) +
+//									(clamp( (uint)E.y, (uint)u * BRICKDIM, (uint)u * BRICKDIM + BRICKDIM - 1 ) << 10) +
+//									clamp( (uint)E.z, (uint)v * BRICKDIM, (uint)v * BRICKDIM + BRICKDIM - 1 );
+//								const uint pn = p & TOPMASK3;
+//								float dmx = ((float)((p >> 20) + OFFS_X) - O.x) * rD[i].x;
+//								float dmy = ((float)(((p >> 10) & 1023) + OFFS_Y) - O.y) * rD[i].y;
+//								float dmz = ((float)((p & 1023) + OFFS_Z) - O.z) * rD[i].z, d = tmin;
+//								do
+//								{
+//									const uint idx = (g >> 1) * BRICKSIZE + ((p >> 20) & BMSK) + ((p >> 10) & BMSK) * BRICKDIM + (p & BMSK) * BDIM2;
+//									const unsigned int c = brick[idx];
+//									if (c != 0U)
+//									{
+//										packet_t[i] = d;
+//										packet_N[i] = make_float3( (float)((last == 0) * DIR_X), (float)((last == 1) * DIR_Y), (float)((last == 2) * DIR_Z) ) * -1.0f;
+//										packet_voxel[i] = c;
+//									}
+//									d = min( dmx, min( dmy, dmz ) );
+//									if (d == dmx) dmx += tdx, p += DIR_X << 20, last = 0;
+//									if (d == dmy) dmy += tdy, p += DIR_Y << 10, last = 1;
+//									if (d == dmz) dmz += tdz, p += DIR_Z, last = 2;
+//								} while ((p & TOPMASK3) == pn);
+//							}
+//						}
+//					}
+//				}
+//			}
+//			w += dir;
+//			if (w < 0 || w >= GRIDWIDTH) break;
+//		}
+//	}
 }
 
 /*
@@ -1187,9 +1262,17 @@ void World::Commit()
 		{
 			const uint i = j * 32 + k;
 			if (!IsDirty( i )) continue;
+
+			const uint firIdx = (i / uint(BRICKS_PER_BUFFER));
+			const uint modIdx = (i % uint(BRICKS_PER_BUFFER));
+
 			*brickIndices++ = i; // store index of modified brick at start of commit buffer
-			StreamCopy( (__m256i*)changedBricks, (__m256i*)(brick + i * BRICKSIZE), BRICKSIZE );
-			changedBricks += BRICKSIZE, tasks++;
+			StreamCopy( (__m256i*)changedBricks, (__m256i*)(bricks[firIdx] + modIdx * 2 * BRICKSIZE), BRICKSIZE * 2);
+			changedBricks += BRICKSIZE * 2;
+		//	StreamCopy((__m256i*)changedBricks, (__m256i*)(brickMaterial + i * BRICKSIZE), BRICKSIZE);
+		//	StreamCopy((__m256i*)changedBricks, (__m256i*)(brick + i * BRICKSIZE), BRICKSIZE);
+		//	changedBricks += BRICKSIZE;
+			tasks++;
 		}
 		ClearMarks32( j );
 		if (tasks + 32 >= MAXCOMMITS) break; // we have too many commits; postpone
@@ -1200,7 +1283,7 @@ void World::Commit()
 	if (tasks > 0 || firstFrame)
 	{
 		// enqueue (on queue 2) memcopy of pinned buffer to staging buffer on GPU
-		const uint copySize = firstFrame ? commitSize : (gridSize + MAXCOMMITS * 4 + tasks * BRICKSIZE);
+		const uint copySize = firstFrame ? commitSize : (gridSize + MAXCOMMITS * 4 + tasks * 2 * BRICKSIZE);
 		clEnqueueWriteBuffer( Kernel::GetQueue2(), devmem, 0, 0, copySize, pinnedMemPtr, 0, 0, 0 );
 		// enqueue (on queue 2) vram-to-vram copy of the top-level grid to a 3D OpenCL image buffer
 		size_t origin[3] = { 0, 0, 0 };
@@ -1222,7 +1305,7 @@ void World::Commit()
 void World::CheckBrick( const uint idx )
 {
 	int zeroCount = 0;
-	for (int q = 0; q < BRICKSIZE; q++) if (brick[idx * BRICKSIZE + q] == 0) zeroCount++;
+	for (int q = 0; q < BRICKSIZE; q++) if (bricks[0][idx * BRICKSIZE + q] == 0) zeroCount++;
 	if (zeroCount != brickInfo[idx].zeroes)
 	{
 		for (int i = 0; i < GRIDSIZE; i++) if (grid[i] == ((idx << 1) | 1))
@@ -1274,8 +1357,10 @@ Tile::Tile( const char* voxFile )
 	uint zeroCount = 0;
 	for (int i = 0; i < BRICKSIZE; i++)
 	{
-		uchar v = frame->buffer[i];
-		voxels[i] = v;
+		uchar v = frame->buffer[i * 2];
+		uchar a = frame->buffer[i * 2 + 1];
+		voxels[i * 2] = v;
+		voxels[i * 2 + 1] = a;
 		if (v == 0) zeroCount++;
 	}
 	zeroes = zeroCount;
@@ -1302,8 +1387,10 @@ BigTile::BigTile( const char* voxFile )
 		uint zeroCount = 0;
 		for (int z = 0; z < BRICKDIM; z++) for (int y = 0; y < BRICKDIM; y++) for (int x = 0; x < BRICKDIM; x++)
 		{
-			uchar v = frame->buffer[sx * BRICKDIM + x + (sy * BRICKDIM + y) * BRICKDIM * 2 + (sz * BRICKDIM + z) * 4 * BRICKDIM * BRICKDIM];
-			tile[subTile].voxels[x + y * BRICKDIM + z * BRICKDIM * BRICKDIM] = v;
+			uchar v = frame->buffer[(sx * BRICKDIM + x + (sy * BRICKDIM + y) * BRICKDIM * 2 + (sz * BRICKDIM + z) * 4 * BRICKDIM * BRICKDIM) * 2];
+			uchar a = frame->buffer[(sx * BRICKDIM + x + (sy * BRICKDIM + y) * BRICKDIM * 2 + (sz * BRICKDIM + z) * 4 * BRICKDIM * BRICKDIM) * 2 + 1];
+			tile[subTile].voxels[(x + y * BRICKDIM + z * BRICKDIM * BRICKDIM) * 2] = v;
+			tile[subTile].voxels[(x + y * BRICKDIM + z * BRICKDIM * BRICKDIM) * 2 + 1] = a;
 			if (v == 0) zeroCount++;
 		}
 		tile[subTile].zeroes = zeroCount;
