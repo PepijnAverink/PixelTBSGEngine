@@ -148,7 +148,7 @@ World::World( const uint targetID0)
 	//updateProbeKernel->SetArgument(0, screen);
 	//updateProbeKernel->SetArgument(0, &probeTexture);
 	//updateProbeKernel->SetArgument(1, &irradianceTraceTexture);
-	//
+
 	//traceProbeKernel->SetArgument(0, &irradianceTraceTexture);
 	//traceProbeKernel->SetArgument(1, &normalTraceTexture);
 	//traceProbeKernel->SetArgument(2, blueNoise);
@@ -951,7 +951,7 @@ void World::DrawBigTiles( const char* tileString, const uint x, const uint y, co
 void Tmpl8::World::LoadTerainFromSprite(const uint idx, const uint x, const uint y, const uint z)
 {
 	int3 pos = sprite[idx]->currPos;
-	sprite[idx]->currPos = {x, y, z};
+	sprite[idx]->currPos = make_int3(x, y, z);
 
 	DrawSprite(idx);
 	sprite[idx]->currPos = pos;
