@@ -597,7 +597,6 @@ uint World::SpriteFrameCount( const uint idx )
 // ----------------------------------------------------------------------------
 void World::RemoveSprite( const uint idx )
 {
-	printf("removeing sprite...\n");
 	// restore pixels occupied by sprite at previous location
 	const int3 lastPos = sprite[idx]->lastPos;
 	if (lastPos.x == -9999) return;
