@@ -47,7 +47,7 @@ public:
 	bool IsFriendlyUnit(uint unitID);
 	bool IsEnemyUnit(uint enemyID);
 	bool IsEnemyBuilding(uint enemyID);
-
+	bool hasLost();
 	
 	flecs::entity SpawnEntity(uint unit, uint playerID = 0, float3 location = make_float3(0,0,0));
 	flecs::entity SpawnUnit(uint unit, uint playerID = 0, float3 location = make_float3(0,0,0));
@@ -55,10 +55,13 @@ public:
 	flecs::entity SpawnTank(uint playerID = 0, float3 location = make_float3(0,0,0));
 	flecs::entity SpawnArtilleryTank(uint playerID = 0, float3 location = make_float3(0,0,0));
 	flecs::entity SpawnPatrollingTank(uint playerID, float3 location, vector<float3> patrolPoints);
+	flecs::entity SpawnPatrollingTank(uint playerID, vector<float3> patrolPoints);
 	flecs::entity SpawnPatrollingAtrilleryTank(uint playerID, float3 location, vector<float3> patrolPoints);
+	flecs::entity SpawnPatrollingAtrilleryTank(uint playerID, vector<float3> patrolPoints);
 
 
 private:
+
 	float2 mousePos;
 	vector<uint> selectedUnits;
 	uint outlineSprties[20];
@@ -70,6 +73,11 @@ private:
 	Outlines outlines;
 
 	World* world;
+
+	flecs::entity headquarters;
+	bool gameWon;
+	bool gameLose;
+	int highScore;
 
 	//Selecting Units
 	float3 startPos;

@@ -248,6 +248,21 @@ int GetTarget(float fireRange, int3 currentPos, uint playerID = 0)
 	return 0;
 }
 
+void AddScore(flecs::entity currentEntity)
+{
+	if (currentEntity.has<Player2>())
+	{
+		if (currentEntity.has<Building>())
+		{
+			score += 100;
+		}
+		else
+		{
+			score += 50;
+		}
+	}
+}
+
 void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 {
 	if (weaponData.currentReloadTime > 0)
@@ -276,35 +291,40 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 		return;
 	}
 
-	int3 enemyPos = world->sprite[weaponData.target]->currPos;
-	if (entity.has< Rotation>())
-	{
-		float3 dir = normalize(make_float3(enemyPos - currentPos));
-		float targetRot = atan2(dir.z, dir.x);
-		Rotation* rotation = entity.get_mut<Rotation>();
-		if (RadiansToDegrees(targetRot) != rotation->target)
-		{
-			rotation->target = RadiansToDegrees(targetRot);
-			rotation->reachedTarget = false;
-			entity.modified<Rotation>();
-			return;
-		}
-		else if (!entity.get<Rotation>()->reachedTarget)
-		{
-			return;
-		}
-	}
-	else
-	{
-		float3 dir = normalize(make_float3(enemyPos - currentPos));
-		float targetRot = atan2(dir.z, dir.x);
-		world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
-	}
 
-	MoveLocation moveData{ weaponData.shotObjectSpeed,make_float3(currentPos),make_float3(currentPos), make_float3(enemyPos),false,0 };
-	ShotObjectData shotObjectData{ moveData, weaponData.target, weaponData.playerID};
-	switch (weaponData.bulletType)
+	int3 enemyPos = world->sprite[weaponData.target]->currPos;
+	float dist = abs(length(make_float3(currentPos - enemyPos)));
+
+	if (dist <= weaponData.fireRange)
 	{
+		if (entity.has< Rotation>())
+		{
+			float3 dir = normalize(make_float3(enemyPos - currentPos));
+			float targetRot = atan2(dir.z, dir.x);
+			Rotation* rotation = entity.get_mut<Rotation>();
+			if (RadiansToDegrees(targetRot) != rotation->target)
+			{
+				rotation->target = RadiansToDegrees(targetRot);
+				rotation->reachedTarget = false;
+				entity.modified<Rotation>();
+				return;
+			}
+			else if (!entity.get<Rotation>()->reachedTarget)
+			{
+				return;
+			}
+		}
+		else
+		{
+			float3 dir = normalize(make_float3(enemyPos - currentPos));
+			float targetRot = atan2(dir.z, dir.x);
+			world->RotateSprite(entity.id(), 0, 1, 0, targetRot);
+		}
+
+		MoveLocation moveData{ weaponData.shotObjectSpeed,make_float3(currentPos),make_float3(currentPos), make_float3(enemyPos),false,0 };
+		ShotObjectData shotObjectData{ moveData, weaponData.target, weaponData.playerID };
+		switch (weaponData.bulletType)
+		{
 		case BulletType::Bullet_Tank:
 		{
 			SpawnTankBullet(weaponData.shotObjectID, currentPos, shotObjectData);
@@ -315,8 +335,9 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 			SpawnArtilleryBullet(weaponData.shotObjectID, currentPos, shotObjectData);
 			break;
 		}
+		}
+		weaponData.currentReloadTime = weaponData.reloadTime;
 	}
-	weaponData.currentReloadTime = weaponData.reloadTime;
 }
 
 void RemoveUnitFromUnitField(const flecs::entity entity)
@@ -348,6 +369,7 @@ void MoveTankBullet(const flecs::entity entity, TankBullet& tankBullet, ShotObje
 		MoveEntity(entity, shotObjectData.moveData);
 		if (shotObjectData.moveData.reachedTarget)
 		{
+			AddScore(target);
 			GetWorld()->DisableSprite(shotObjectData.targetID);		
 			RemoveUnitFromUnitField(target);
 			DisableChild(target);
@@ -383,10 +405,10 @@ void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryB
 				entityPos.y = 0;
 				float3 targetPos = shotObjectData.moveData.targetPos;
 				targetPos.y = 0;
-				float distX = abs(entityPos.x - targetPos.x);
-				float distZ = abs(entityPos.z - targetPos.z);
-				if (distX <= 16 || distZ <= 16)
+				float dist = abs(length(entityPos - targetPos));
+				if (dist <= 32)
 				{
+					AddScore(currentEntity);
 					RemoveUnitFromUnitField(currentEntity);
 					DisableChild(currentEntity);
 					world->DisableSprite(it.entity(index).id());
@@ -402,8 +424,8 @@ void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryB
 		//Check if there is already a gab there
 		//TODO: Change this so it gets the terrain and removes part of it
 		pathfinder.SetCostOnCostField(GridPosToIndex(GetIndexes(shotObjectData.moveData.targetPos), mapSize.x));
-		uint spriteID = world->LoadSprite("assets/SetDressing/Mountain_High.vox");
-		world->MoveSpriteTo(spriteID, shotObjectData.moveData.targetPos.x, 16, shotObjectData.moveData.targetPos.z);
+		uint spriteID = world->LoadSprite("assets/tile00.vox");
+		world->DestroyTerrain(spriteID, shotObjectData.moveData.targetPos.x, 8, shotObjectData.moveData.targetPos.z);
 	}
 }
 

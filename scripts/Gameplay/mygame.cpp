@@ -21,15 +21,39 @@ void MyGame::Init()
 		world->ScaleSprite(outlineSprties[i], make_uint3(1, 1, 1));
 	}
 
+
+	ifstream myfile("assets/highscore/score.txt");
+	if (myfile.is_open())
+	{
+		string line;
+		string result = "";
+		while (getline(myfile, line))
+		{
+			result.append(line);
+		}
+		highScore = std::stoi(result);
+		myfile.close();
+	}
+	else
+	{
+		highScore = 0;
+		ofstream myfile("assets/highscore/score.txt");
+		if (myfile.is_open())
+		{
+			myfile << to_string(highScore);
+			myfile.close();
+		}
+	}
+
 	AddComponentsToFlecsWorld();
-	tileLoader.LoadTile("assets/Maps/FirstMap.json");
+	tileLoader.LoadTile("assets/Maps/Level1.json");
 	heightMap = tileLoader.GetHeightMap();
 	mapSize = make_int2(tileLoader.grid.width, tileLoader.grid.height);
 	pathfinder.arrow = world->LoadSprite("assets/Arrow.vox");
 	pathfinder.point = world->LoadSprite("assets/Point.vox");
 	SpawnWorld();
 
-	for (uint x = 0; x < 4; x++)
+	/*for (uint x = 0; x < 4; x++)
 	{
 		for (uint y = 0; y < 6; y++)
 		{
@@ -37,7 +61,7 @@ void MyGame::Init()
 			uint id = world->LoadSprite(s.c_str());
 			world->MoveSpriteTo(id, 600 + x * 10, 20, 200 + y * 10);
 		}
-	}
+	}*/
 
 	camera = Camera();
 	camera.SetPositionAndLookat(make_float3(500, 128, 500), make_float3(300, 1, 300));
@@ -46,7 +70,7 @@ void MyGame::Init()
 	pathfinder.SetMapSize(make_int2(tileLoader.grid.width, tileLoader.grid.height));
 	//VisualizeFlowField(make_float3(390, 16, 210));
 
-	float3 startPos = make_float3(640, 16, 592);
+	float3 startPos = make_float3(752, 16, 752);
 	for (int i = 0; i < 3; ++i)
 	{
 		for (int ii = 0; ii < 3; ++ii)
@@ -57,24 +81,36 @@ void MyGame::Init()
 		}
 	}
 
-	vector<float3> patrolPoints = {make_float3(256,16,384),make_float3(256,16,448) };
-	SpawnPatrollingAtrilleryTank(2, make_float3(256, 16, 384), patrolPoints);
-	
-	patrolPoints = {make_float3(288,16,384),make_float3(288,16,448) };
-	SpawnPatrollingAtrilleryTank(2, make_float3(288, 16, 384), patrolPoints);
+	SpawnPatrollingAtrilleryTank(2, { make_float3(208,16,352),make_float3(352,16,352) });
+	SpawnPatrollingAtrilleryTank(2, { make_float3(352,16,352), make_float3(208,16,352) });
+	SpawnPatrollingAtrilleryTank(2, { make_float3(352,16,208),make_float3(352,16,352) });
+	SpawnPatrollingAtrilleryTank(2, { make_float3(352,16,352), make_float3(352,16,208) });
+	SpawnPatrollingTank(2, { make_float3(400,16,208), make_float3(640,16,512) });
+	SpawnPatrollingTank(2, { make_float3(416,16,208), make_float3(656,16,512) });
 
-	patrolPoints = { make_float3(384,16,160),make_float3(384,16,384), make_float3(160,16,384),make_float3(384,16,384) };
-	SpawnPatrollingAtrilleryTank(2, make_float3(384, 16, 160), patrolPoints);
+	SpawnPatrollingTank(2, { make_float3(208,16,416), make_float3(384,16,416) });
+	SpawnPatrollingTank(2, { make_float3(208,16,432), make_float3(384,16,432) });
+
+
+	SpawnTank(2, { make_float3(352,16,784) });
+	SpawnTank(2, { make_float3(352,16,544) });
+	SpawnTank(2, { make_float3(208,16,784) });
+	SpawnTank(2, { make_float3(208,16,544) });
+	SpawnTank(2, { make_float3(496,16,784) });
+	SpawnTank(2, { make_float3(496,16,544) });
+	SpawnTank(2, { make_float3(672,16,320) });
+	SpawnTank(2, { make_float3(624,16,336) });
+	SpawnTank(2, { make_float3(576,16,320) });
+
+
+	SpawnTank(2, { make_float3(480,16,480) });
+	SpawnTank(2, { make_float3(448,16,480) });
+	SpawnTank(2, { make_float3(480,16,448) });
 
 
 	//SpawnArtilleryTank(2, { 390,16,226 });
 	//SpawnArtilleryTank(2, { 210,16,390 });
 	//SpawnArtilleryTank(2, { 210,16,210 });
-
-	//SpawnEntity(units.aAirMissile, 2, { 390,16,210 });
-	//SpawnEntity(units.aAirMissile, 2, { 390,16,226 });
-	//SpawnEntity(units.aAirMissile, 2, { 210,16,390 });
-	//SpawnEntity(units.aAirMissile, 2, { 210,16,210 });
 }
 
 void Tmpl8::MyGame::AddComponentsToFlecsWorld()
@@ -128,9 +164,8 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 		case TileType::Building:
 		{
 			int height = heightMap[GridPosToIndex(make_int2(indexes.x,indexes.z), mapSize.x)];
-			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), ((indexes.y + 1) *16) + height, indexes.z * 16 + (10 * 16));
-
-			world->DrawBigTile(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
+			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), ((indexes.y + 1) *16) + height, indexes.z * 16 + (10 * 16));		
+			world->LoadTerainFromSprite(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
 
 			uint spriteID = world->CloneSprite(tileData.tile);
 			flecs::entity building =  ecs.entity(spriteID);
@@ -139,11 +174,16 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 			world->MoveSpriteTo(spriteID, spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
 			world->SetSpritePivot(spriteID, 8, 0, 8);
 			world->RotateSprite(spriteID, 0, 1, 0, DegreesToRadians(tileData.rotation));
+
+			if (tileData.tile == 20)
+			{
+				headquarters = building;
+			}
 			break;
 		}
 		case TileType::Terrain:
 		{
-			world->DrawBigTile(tileData.tile, spawnPos.x, spawnPos.y, spawnPos.z);
+			world->LoadTerainFromSprite(tileData.tile, spawnPos.x, spawnPos.y, spawnPos.z);
 			break;
 		}
 		}
@@ -159,6 +199,39 @@ void MyGame::Tick(float deltaTime)
 			KeyPressed(i);
 		}
 	}
+
+	ImGui::Text(("Score: " + to_string(score)).c_str());
+	if (!gameLose)
+	{
+		if (headquarters.has<Dead>() || gameWon)
+		{
+			ImGui::Text(("You win the game you Score: " + to_string(score)).c_str());
+			ImGui::Text(("Your highScore: " + to_string(highScore)).c_str());
+			gameWon = true;
+		}
+	}
+	
+	if (!gameWon)
+	{
+		if (hasLost() || gameLose)
+		{
+			ImGui::Text(("You lose the game you Score: " + to_string(score)).c_str());
+			ImGui::Text(("Your highScore: " + to_string(highScore)).c_str());
+			gameLose = true;
+		}
+	}	
+
+	if (score > highScore)
+	{
+		highScore = score;
+		ofstream myfile("assets/highscore/score.txt");
+		if (myfile.is_open())
+		{
+			myfile << to_string(highScore);
+			myfile.close();
+		}
+	}
+
 
 	//Outline for selection
 	SetOutlineSelectedUnits();
@@ -486,6 +559,22 @@ bool Tmpl8::MyGame::IsEnemyBuilding(uint enemyID)
 	return false;
 }
 
+bool Tmpl8::MyGame::hasLost()
+{
+
+	for (auto it : ecs.filter(filterPlayer1))
+	{
+		for (auto index : it)
+		{
+			if (!it.entity(index).has<Dead>())
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, uint playerID /* = 0*/, float3 location /* = float3 (0,0,0) */)
 {
 	uint spriteID = world->CloneSprite(unit);
@@ -544,7 +633,7 @@ flecs::entity Tmpl8::MyGame::SpawnTank(uint playerID, float3 location)
 	flecs::entity currentUnit = SpawnUnitWithChild(units.reconTop, units.reconBottom, playerID, location, make_float3(0, 9, 0));
 	ecs.entity(currentUnit.get<ChildData>()->childID)
 	.add<WeaponData>()
-	.set<WeaponData>({ 0, 100,units.bullet,0,5,0, 1,BulletType::Bullet_Tank,playerID });
+	.set<WeaponData>({ 0, 48,units.bullet,0,5,0, 1,BulletType::Bullet_Tank,playerID });
 	return currentUnit;
 }
 
@@ -553,7 +642,7 @@ flecs::entity Tmpl8::MyGame::SpawnArtilleryTank(uint playerID, float3 location)
 	flecs::entity currentUnit = SpawnUnitWithChild(units.artilleryTop, units.artilleryBottom, playerID, location,make_float3(0, 6, 0));
 	ecs.entity(currentUnit.get<ChildData>()->childID)
 		.add<WeaponData>()
-		.set<WeaponData>({ 0, 100,units.bullet,0,5,0, 1,BulletType::Bullet_Artillery,playerID });
+		.set<WeaponData>({ 0, 80,units.bullet,0,5,0, 1,BulletType::Bullet_Artillery,playerID });
 	return currentUnit;
 }
 
@@ -566,9 +655,27 @@ flecs::entity Tmpl8::MyGame::SpawnPatrollingTank(uint playerID, float3 location,
 	return currentUnit;
 }
 
+flecs::entity Tmpl8::MyGame::SpawnPatrollingTank(uint playerID, vector<float3> patrolPoints)
+{
+	flecs::entity currentUnit = SpawnTank(2, patrolPoints[0]);
+	currentUnit.add<PatrollData>()
+		.set<PatrollData>({ patrolPoints , 0 });
+	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;
+	return currentUnit;
+}
+
 flecs::entity Tmpl8::MyGame::SpawnPatrollingAtrilleryTank(uint playerID, float3 location, vector<float3> patrolPoints)
 {
 	flecs::entity currentUnit = SpawnArtilleryTank(2, location);
+	currentUnit.add<PatrollData>()
+		.set<PatrollData>({ patrolPoints , 0 });
+	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;
+	return currentUnit;
+}
+
+flecs::entity Tmpl8::MyGame::SpawnPatrollingAtrilleryTank(uint playerID, vector<float3> patrolPoints)
+{
+	flecs::entity currentUnit = SpawnArtilleryTank(2, patrolPoints[0]);
 	currentUnit.add<PatrollData>()
 		.set<PatrollData>({ patrolPoints , 0 });
 	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;

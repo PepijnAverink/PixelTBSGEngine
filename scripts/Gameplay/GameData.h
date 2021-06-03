@@ -6,6 +6,7 @@ namespace Tmpl8
 	flecs::world ecs;
 	vector<int> heightMap;
 	int2 mapSize;
+	int score;
 
 	//Enums
 
