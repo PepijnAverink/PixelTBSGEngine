@@ -597,6 +597,7 @@ uint World::SpriteFrameCount( const uint idx )
 // ----------------------------------------------------------------------------
 void World::RemoveSprite( const uint idx )
 {
+	printf("removeing sprite...\n");
 	// restore pixels occupied by sprite at previous location
 	const int3 lastPos = sprite[idx]->lastPos;
 	if (lastPos.x == -9999) return;
@@ -955,6 +956,11 @@ void Tmpl8::World::LoadTerainFromSprite(const uint idx, const uint x, const uint
 
 	DrawSprite(idx);
 	sprite[idx]->currPos = pos;
+}
+
+void Tmpl8::World::LoadTerainFromBigTile(const uint idx, const uint x, const uint y, const uint z)
+{
+	DrawBigTile(idx, x, y, z);
 }
 
 void Tmpl8::World::DestroyTerrain(const int idx, const uint x, const uint y, const uint z)
@@ -1378,10 +1384,7 @@ void World::Commit()
 	}
 	// bricks and top-level grid have been moved to the final host-side commit buffer; remove sprites
 	for (int s = sprite.size(), i = sprite.size() - 1; i >= 0; i--)
-	{
-		int z = 0;
 		RemoveSprite(i);
-	}
 }
 
 // World::CheckBrick

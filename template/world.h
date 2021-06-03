@@ -163,6 +163,7 @@ public:
 	void DrawBigTiles( const char* tileString, const uint x, const uint y, const uint z );
 
 	void LoadTerainFromSprite(const uint idx, const uint x, const uint y, const uint z);
+	void LoadTerainFromBigTile(const uint idx, const uint x, const uint y, const uint z);
 	void DestroyTerrain(const int idx, const uint x, const uint y, const uint z);
 	// inline ray tracing / cpu-only ray tracing
 	uint TraceRay( float4 A, const float4 B, float& dist, float3& N, int steps );

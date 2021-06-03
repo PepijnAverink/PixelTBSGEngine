@@ -102,5 +102,3 @@ struct RenderParams
 
 #define GI_RAYS_PER_PROBE 192
 #define GI_NORMAL_BIAS 0.1f
-
-#define GI_DEBUG_PROBE_VALUE 0

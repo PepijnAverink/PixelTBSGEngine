@@ -52,6 +52,15 @@ void MyGame::Init()
 	pathfinder.arrow = world->LoadSprite("assets/Arrow.vox");
 	pathfinder.point = world->LoadSprite("assets/Point.vox");
 	SpawnWorld();
+	
+
+
+	uint id = world->LoadSprite("assets/transparency/transparency_0x0.vox");
+	world->MoveSpriteTo(id, 200, 32, 190);
+	world->LoadTerainFromSprite(id, 180, 32, 180);
+	world->LoadTerainFromSprite(id, 190, 32, 180);
+	world->LoadTerainFromSprite(id, 200, 32, 180);
+	world->LoadTerainFromSprite(id, 210, 32, 180);
 
 	/*for (uint x = 0; x < 4; x++)
 	{
@@ -165,7 +174,7 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 		{
 			int height = heightMap[GridPosToIndex(make_int2(indexes.x,indexes.z), mapSize.x)];
 			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), ((indexes.y + 1) *16) + height, indexes.z * 16 + (10 * 16));		
-			world->LoadTerainFromSprite(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
+			world->LoadTerainFromBigTile(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
 
 			uint spriteID = world->CloneSprite(tileData.tile);
 			flecs::entity building =  ecs.entity(spriteID);
@@ -183,7 +192,7 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 		}
 		case TileType::Terrain:
 		{
-			world->LoadTerainFromSprite(tileData.tile, spawnPos.x, spawnPos.y, spawnPos.z);
+			world->LoadTerainFromBigTile(tileData.tile, spawnPos.x, spawnPos.y, spawnPos.z);
 			break;
 		}
 		}
