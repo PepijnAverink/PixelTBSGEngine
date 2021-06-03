@@ -66,6 +66,27 @@ World::World( const uint targetID0)
 	brickBuffer = new Buffer( (BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, bricks[0]);
 	brickMaterialBuffer = new Buffer((BRICKCOUNT * BRICKSIZE) / 4, Buffer::DEFAULT, bricks[1]);
 
+	{
+		cl_image_format fmt;
+		fmt.image_channel_order = CL_RGBA;
+		fmt.image_channel_data_type = CL_UNORM_INT8;
+		cl_image_desc desc;
+		memset(&desc, 0, sizeof(cl_image_desc));
+		desc.image_type   = CL_MEM_OBJECT_IMAGE2D;
+		desc.image_width  = GI_PROBE_COUNT;
+		desc.image_height = GI_RAYS_PER_PROBE;
+		desc.image_depth  = 1;
+
+		irradianceTraceTexture = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		normalTraceTexture     = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+
+		desc.image_width  = GI_PROBE_TEXTURE_WIDTH;
+		desc.image_height = GI_PROBE_TEXTURE_HEIGHT;
+
+
+		probeTexture = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+	}
+
 	brickInfo = new BrickInfo[BRICKCOUNT];
 	// create a cyclic array for unused bricks (all of them, for now)
 	trash = new uint[BRICKCOUNT];
@@ -93,6 +114,9 @@ World::World( const uint targetID0)
 	committer = new Kernel( renderer->GetProgram(), "commit" );
 	kernel = new Kernel("cl/fxaakernel.cl", "copy");
 
+	//updateProbeKernel = new Kernel( renderer->GetProgram(), "updateProbes" );
+	//traceProbeKernel = new Kernel( renderer->GetProgram(), "traceProbes");
+
 	renderer->SetArgument( 0, &diffuseOutput);
 	renderer->SetArgument( 1, &globalIlluminationOutput);
 	renderer->SetArgument( 2, paramBuffer );
@@ -106,6 +130,7 @@ World::World( const uint targetID0)
 	kernel->SetArgument(0, screen);
 	kernel->SetArgument(1, &diffuseOutput);
 	kernel->SetArgument(2, &globalIlluminationOutput);
+
 	// prepare the bluenoise data
 	const uchar* data8 = (const uchar*)sob256_64; // tables are 8 bit per entry
 	uint* data32 = new uint[65536 * 5]; // we want a full uint per entry
@@ -118,6 +143,17 @@ World::World( const uint targetID0)
 	blueNoise->CopyToDevice();
 	delete data32;
 	renderer->SetArgument( 7, blueNoise );
+	//renderer->SetArgument( 8, &probeTexture);
+
+	//updateProbeKernel->SetArgument(0, screen);
+	//updateProbeKernel->SetArgument(0, &probeTexture);
+	//updateProbeKernel->SetArgument(1, &irradianceTraceTexture);
+	//
+	//traceProbeKernel->SetArgument(0, &irradianceTraceTexture);
+	//traceProbeKernel->SetArgument(1, &normalTraceTexture);
+	//traceProbeKernel->SetArgument(2, blueNoise);
+	//traceProbeKernel->SetArgument(3, paramBuffer);
+
 #endif
 	targetTextureID = targetID0;
 	// load a bitmap font for the print command
@@ -912,6 +948,50 @@ void World::DrawBigTiles( const char* tileString, const uint x, const uint y, co
 	}
 }
 
+void Tmpl8::World::LoadTerainFromSprite(const uint idx, const uint x, const uint y, const uint z)
+{
+	int3 pos = sprite[idx]->currPos;
+	sprite[idx]->currPos = {x, y, z};
+
+	DrawSprite(idx);
+	sprite[idx]->currPos = pos;
+}
+
+void Tmpl8::World::DestroyTerrain(const int idx, const uint x, const uint y, const uint z)
+{
+	// restore pixels occupied by sprite at previous location
+	const int3 lastPos = sprite[idx]->lastPos;
+	if (lastPos.x == -9999) return;
+	const SpriteFrame* backup = sprite[idx]->backup;
+	const int3 s = backup->size;
+	const int3& p = sprite[idx]->pivot;
+
+	const float4& r = sprite[idx]->lastRotation;
+
+	const uchar bal = sprite[idx]->backupAlpha;
+
+	mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
+
+	for (int i = s.x * s.y * s.z - 1, w = s.z - 1; w >= 0; w--) for (int v = s.y - 1; v >= 0; v--) for (int u = s.x - 1; u >= 0; u--, i--)
+	{
+		if (fabs(r.w) > 0.0001)
+		{
+			float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
+			float4 p1 = p0 * matrix;
+
+			int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + p;
+
+			if (backup->buffer[i * 2] > 0)
+				Set(p2.x, p2.y, p2.z, 0, 0);
+		}
+		else
+		{
+			if (backup->buffer[i * 2] > 0)
+				Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, 0, 0);
+		}
+	}
+}
+
 // World::Trace
 // ----------------------------------------------------------------------------
 float4 FixZeroDeltas( float4 V )
@@ -1146,8 +1226,12 @@ void World::Render()
 	}
 	// get render parameters to GPU and invoke kernel asynchronously
 	paramBuffer->CopyToDevice( false );
-	renderer->Run(0, &renderDone );
 
+	//traceProbeKernel->Run2D(make_int2(GI_PROBE_COUNT, GI_RAYS_PER_PROBE), make_int2(32, 4), 0, 0);
+	//updateProbeKernel->Run2D(make_int2(GI_PROBE_TEXTURE_WIDTH, GI_PROBE_TEXTURE_HEIGHT), make_int2(32, 4), 0, 0);
+	//updateProbeKernel->Run(screen, make_int2(32, 4));
+
+	renderer->Run(0, &renderDone );
 	kernel->Run(screen, make_int2(32, 4));
 #else
 	// CPU-only path

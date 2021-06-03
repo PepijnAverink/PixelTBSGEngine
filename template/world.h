@@ -161,6 +161,9 @@ public:
 	void DrawTiles( const char* tileString, const uint x, const uint y, const uint z );
 	void DrawBigTile( const uint idx, const uint x, const uint y, const uint z );
 	void DrawBigTiles( const char* tileString, const uint x, const uint y, const uint z );
+
+	void LoadTerainFromSprite(const uint idx, const uint x, const uint y, const uint z);
+	void DestroyTerrain(const int idx, const uint x, const uint y, const uint z);
 	// inline ray tracing / cpu-only ray tracing
 	uint TraceRay( float4 A, const float4 B, float& dist, float3& N, int steps );
 	void TracePacket( float3 O, const float3 P1, const float3 P2, const float3 P3, const float3 P4 );
@@ -337,6 +340,14 @@ private:
 	uint* grid = 0;						// pointer to host-side copy of the top-level grid
 	Buffer* brickBuffer;
 	Buffer* brickMaterialBuffer;
+
+	cl_mem  irradianceTraceTexture;
+	cl_mem  normalTraceTexture;
+	//Kernel* traceProbeKernel;
+
+	cl_mem  probeTexture;
+	//Kernel* updateProbeKernel;
+
 	uchar* bricks[2];					// pointer to host-side copy of the bricks
 //	uchar* brickMaterial = 0;
 	uint* modified = 0;					// bitfield to mark bricks for synchronization
