@@ -965,35 +965,15 @@ void Tmpl8::World::LoadTerainFromBigTile(const uint idx, const uint x, const uin
 void Tmpl8::World::DestroyTerrain(const int idx, const uint x, const uint y, const uint z)
 {
 	// restore pixels occupied by sprite at previous location
-	const int3 lastPos = sprite[idx]->lastPos;
-	if (lastPos.x == -9999) return;
-	const SpriteFrame* backup = sprite[idx]->backup;
+	const int3 lastPos = make_int3(x, y, z);;
+	const SpriteFrame* backup = sprite[idx]->frame[sprite[idx]->currFrame];
 	const int3 s = backup->size;
-	const int3& p = sprite[idx]->pivot;
 
-	const float4& r = sprite[idx]->lastRotation;
-
-	const uchar bal = sprite[idx]->backupAlpha;
-
-	mat4 matrix = mat4::Rotate(r.x, r.y, r.z, r.w);
 
 	for (int i = s.x * s.y * s.z - 1, w = s.z - 1; w >= 0; w--) for (int v = s.y - 1; v >= 0; v--) for (int u = s.x - 1; u >= 0; u--, i--)
 	{
-		if (fabs(r.w) > 0.0001)
-		{
-			float4 p0 = make_float4(-p.x + u, -p.y + v, -p.z + w, 1.0f);
-			float4 p1 = p0 * matrix;
-
-			int3 p2 = make_int3(lastPos.x + p1.x, lastPos.y + p1.y, lastPos.z + p1.z) + p;
-
-			if (backup->buffer[i * 2] > 0)
-				Set(p2.x, p2.y, p2.z, 0, 0);
-		}
-		else
-		{
-			if (backup->buffer[i * 2] > 0)
-				Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, 0, 0);
-		}
+		if (backup->buffer[i * 2] > 0)
+			Set(lastPos.x + u, lastPos.y + v, lastPos.z + w, 0, 0);
 	}
 }
 
