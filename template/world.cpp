@@ -740,7 +740,7 @@ void Tmpl8::World::DrawParticles(ParticleSystem* _system)
 {
 	for (uint32_t i = 0; i < _system->Particle.size(); i++)
 	{
-		Set(_system->Particle[i]->currPos.x, _system->Particle[i]->currPos.y, _system->Particle[i]->currPos.z, _system->Particle[i]->color, 7);
+		Set(_system->Particle[i]->currPos.x, _system->Particle[i]->currPos.y, _system->Particle[i]->currPos.z, _system->Particle[i]->color, _system->Particle[i]->alpha);
 		_system->Particle[i]->lastPos = _system->Particle[i]->currPos;
 	}
 }

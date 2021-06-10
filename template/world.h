@@ -60,7 +60,8 @@ public:
 	int3 lastPos = make_int3(-9999);
 	int3 currPos = make_int3(-9999);
 
-	uint color = 0;
+	uchar color = 0;
+	uchar alpha = 7;
 	bool active = true;
 };
 
