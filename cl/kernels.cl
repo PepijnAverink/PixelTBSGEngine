@@ -193,8 +193,109 @@ float3 PaniniProjection( float2 tc, const float fov, const float d )
 	return (float3)(sinPhi, tanTheta, cosPhi) * s;
 }
 
-__kernel void render( write_only image2d_t outimg, write_only image2d_t outimg1, __constant struct RenderParams* params,
-	__read_only image3d_t grid, __global unsigned char* brick, __global unsigned char* brickMaterial, __global float4* sky, __global const uint* blueNoise )
+float _SignNotZero(float v)
+{
+	return v > 0.0f ? 1.0f : -1.0f;
+}
+
+float2 _SignNotZeroTwo(float2 v)
+{
+	return (float2)(_SignNotZero(v.x), _SignNotZero(v.y));
+}
+
+float2 octEncode(float3 v) {
+    float l1norm = fabs(v.x) + fabs(v.y) + fabs(v.z);
+    float2 result = v.xy * (1.0f / l1norm);
+    if (v.z < 0.0) {
+        result = ((float2)(1.0f, 1.0f) - (float2)(fabs(result.y), fabs(result.x))) * _SignNotZeroTwo(result.xy);
+    }
+    return result;
+}
+
+float3 octDecode(float2 o) {
+    float3 v = (float3)(o.x, o.y, 1.0 - fabs(o.x) - fabs(o.y));
+    if (v.z < 0.0) {
+        v.xy = ((float2)(1.0f, 1.0f) - (float2)(fabs(v.y), fabs(v.x))) * _SignNotZeroTwo(v.xy);
+    }
+    return normalize(v);
+}
+
+int3 baseGridCoord(float3 position) {
+    return clamp(convert_int3((position - (float3)(GI_POSITION_X, GI_POSITION_Y, GI_POSITION_Z)) / (float3)(GI_STEP_SIZE_X, GI_STEP_SIZE_Y, GI_STEP_SIZE_Z)),
+                (int3)(0, 0, 0), 
+                (int3)(GI_DIMENSION_X, GI_DIMENSION_Y, GI_DIMENSION_Z) - (int3)(1, 1, 1));
+}
+
+float3 gridCoordToPosition(int3 c) {
+    return (float3)(GI_STEP_SIZE_X, GI_STEP_SIZE_Y, GI_STEP_SIZE_Z) * convert_float3(c) + (float3)(GI_POSITION_X, GI_POSITION_Y, GI_POSITION_Z);
+}
+
+int gridCoordToProbeIndex(int3 probeCoords) {
+    return probeCoords.x + probeCoords.y * GI_DIMENSION_X + probeCoords.z * GI_DIMENSION_Y * GI_DIMENSION_Y;
+}
+
+float2 textureCoordFromDirection(float3 dir, int probeIndex)
+{
+   	float2 normalizedOctCoord = octEncode(normalize(dir));
+    float2 normalizedOctCoordZeroOne = ((normalizedOctCoord + (float2)(1.0f, 1.0f)) * 0.5f);
+
+	 // Length of a probe side, plus one pixel on each edge for the border
+    float probeWithBorderSide = (float)GI_PROBE_RESOLUTION + 2.0f;
+	
+	float2 octCoordNormalizedToTextureDimensions = (normalizedOctCoordZeroOne * (float)(GI_PROBE_RESOLUTION)) / (float2)((float)(GI_PROBE_TEXTURE_WIDTH), (float)(GI_PROBE_TEXTURE_HEIGHT));
+	int probesPerRow = GI_PROBE_TEXTURE_WIDTH / (int)(probeWithBorderSide);
+	
+	float2 probeTopLeftPosition = (float2)((probeIndex % probesPerRow) * probeWithBorderSide, (probeIndex / probesPerRow) * probeWithBorderSide) + (float2)(1.0f, 1.0f);
+	float2 normalizedProbeTopLeftPosition = probeTopLeftPosition / (float2)((float)(GI_PROBE_TEXTURE_WIDTH), (float)(GI_PROBE_TEXTURE_HEIGHT));
+	
+	return normalizedProbeTopLeftPosition + octCoordNormalizedToTextureDimensions;
+}
+
+void bufferIndexFromDirection(float3 dir, int probeIndex, int* bufferIndex, float2* uv)
+{
+   	float2 normalizedOctCoord = octEncode(normalize(dir));
+    float2 normalizedOctCoordZeroOne = ((normalizedOctCoord + (float2)(1.0f, 1.0f)) * 0.5f);
+
+	 // Length of a probe side, plus one pixel on each edge for the border
+    int probeWithBorderSide = GI_PROBE_RESOLUTION + 2.0f;
+	
+	float2 octCoordNormalizedToTextureDimensions = (normalizedOctCoordZeroOne * (float)(GI_PROBE_RESOLUTION));// / (float2)((float)(GI_PROBE_TEXTURE_WIDTH), (float)(GI_PROBE_TEXTURE_HEIGHT));
+	int2 octCoordBufferIndex = convert_int2(octCoordNormalizedToTextureDimensions);
+	int probesPerRow = GI_PROBE_TEXTURE_WIDTH / probeWithBorderSide;
+	
+	int2 probeTopLeftPosition = (int2)((probeIndex % probesPerRow) * probeWithBorderSide, (probeIndex / probesPerRow) * probeWithBorderSide) + (int2)(1, 1);
+	//float2 normalizedProbeTopLeftPosition = probeTopLeftPosition / (float2)((float)(GI_PROBE_TEXTURE_WIDTH), (float)(GI_PROBE_TEXTURE_HEIGHT));
+	
+	int2 tbufferID = probeTopLeftPosition + octCoordBufferIndex;
+	
+	*bufferIndex = tbufferID.y * GI_PROBE_TEXTURE_WIDTH + tbufferID.x -1;
+	//return probeTopLeftPosition + octCoordNormalizedToTextureDimensions;
+}
+
+float3 probeIndexToPosition(int _index)
+{
+	// Calculate gridCoord
+	float3 gridCoord;
+	gridCoord.x =  _index %  GI_DIMENSION_X;
+	gridCoord.y = (_index % (GI_DIMENSION_X * GI_DIMENSION_Y)) / GI_DIMENSION_X;
+	gridCoord.z =  _index / (GI_DIMENSION_X * GI_DIMENSION_Y);
+	
+	return (convert_float3(gridCoord) * (float3)(GI_STEP_SIZE_X, GI_STEP_SIZE_Y, GI_STEP_SIZE_Z)) + (float3)(GI_POSITION_X, GI_POSITION_Y, GI_POSITION_Z);
+}
+
+float3 probeIndexToPosition1(int _index)
+{
+	// Calculate gridCoord
+	float3 gridCoord;
+	gridCoord.x =  _index %  GI_DIMENSION_X;
+	gridCoord.y = (_index % (GI_DIMENSION_X * GI_DIMENSION_Y)) / GI_DIMENSION_X;
+	gridCoord.z =  _index / (GI_DIMENSION_X * GI_DIMENSION_Y);
+	
+	return convert_float3(gridCoord) / (float3)(3.0f);
+}
+
+__kernel void render( write_only image2d_t outimg, __constant struct RenderParams* params, __read_only image3d_t grid, __global unsigned char* brick, __global unsigned char* brickMaterial, 
+__global float4* sky, __global const uint* blueNoise, __global float4* irradianceProbes, __global float2* depthProbes )
 {
 	// produce primary ray for pixel
 	const int column = get_global_id( 0 );
@@ -219,6 +320,114 @@ __kernel void render( write_only image2d_t outimg, write_only image2d_t outimg1,
 	const float3 CO = INVPI * (float3)((voxel >> 5) * (1.0f / 7.0f), ((voxel >> 2) & 7) * (1.0f / 7.0f), (voxel & 3) * (1.0f / 3.0f));
 	// visualize result
 	float3 pixel;
+	
+	//// Calculate worldPos
+	float3 worldPos = params->E + (D * dist);
+	float3 viewVec  = normalize(params->E - worldPos);
+	
+	// Calculate gridCoords
+	//int3   baseGrid = baseGridCoord(worldPos);
+	//int    baseProbeID  = gridCoordToProbeIndex(baseGrid);
+	//float3 baseProbePos = gridCoordToPosition(baseGrid);
+	//
+	//// Error check
+	////if (baseGrid.x <= 0 || baseGrid.y <= 0 || baseGrid.z <= 0)
+	////{
+	////	write_imagef( outimg, (int2)(column, line), (float4)(0.0f, 0.0f, 0.0f, 1.0f) );
+	////	return;
+	////}
+	//
+	//float energyPreservation = 0.95f;
+	//
+	//int   GI_DEBUG_VALUE0 = 7;
+	//float GI_DEBUG_RESULT = 0.0f;
+	//
+	//// Probe weight
+	//float3 alpha = clamp((worldPos - baseProbePos) / (float3)(GI_STEP_SIZE_X, GI_STEP_SIZE_Y, GI_STEP_SIZE_Z), (float3)(0.0f, 0.0f, 0.0f), (float3)(1.0f, 1.0f, 1.0f));
+	//float4 result = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+	//for (int i = 0; i < 8; ++i)
+	//{
+	//	// Probe offset
+	//	int3 offset = (int3)(i, i>>1, i>>2) & (int3)(1);
+	//	
+	//	int3 probeGridCoord = baseGrid + offset;//clamp(baseGrid + offset, (int3)(0, 0, 0), (int3)((GI_DIMENSION_X, GI_DIMENSION_Y, GI_DIMENSION_Z) - (int3)(1, 1, 1)));
+    //    int  p = gridCoordToProbeIndex(probeGridCoord);
+	//
+	//	float3 probePos = gridCoordToPosition(probeGridCoord);
+	//	
+	//	float3 probeToPoint = (worldPos - probePos) + normalize(N + (float3)(1.0f) * viewVec) * 0.01f;
+    //    float3 dir = normalize(-probeToPoint);
+	//	
+	//	float3 trilinear;
+	//	trilinear.x = mix(1.0f - alpha.x, alpha.x, offset.x);
+	//	trilinear.y = mix(1.0f - alpha.y, alpha.y, offset.y);
+	//	trilinear.z = mix(1.0f - alpha.z, alpha.z, offset.z);
+	//	
+	//	float weight = 1.0;
+	//	{
+	//		float3 trueDirectionToProbe = normalize(probePos - worldPos);
+	//		weight *= max(0.0001f, dot(trueDirectionToProbe, N));
+	//	}
+	////   
+	////   	float3 irradianceDir = trueDirectionToProbe;
+	////	
+	//	int bufferID = 0;
+	//	float2 uv;
+	//	bufferIndexFromDirection(-dir, p, &bufferID, &uv);   
+	//    {
+	//		float2 depth = depthProbes[bufferID];
+	//		float distance = length(probeToPoint);
+	//		
+	//		float mean = depth.x;
+    //        float variance = fabs((depth.x * depth.x) - depth.y);
+	//
+	//		float t = max(distance - mean, 0.0f) * max(distance - mean, 0.0f);
+    //        float chebyshevWeight = variance / (variance + t);
+    //        chebyshevWeight = max(chebyshevWeight * chebyshevWeight * chebyshevWeight, 0.0f);
+	//		
+	//
+    //    //   weight *= (distance <= mean) ? 1.0 : chebyshevWeight;
+	////		
+	////		if (GI_DEBUG_VALUE0 == i)
+	////			GI_DEBUG_RESULT = mean;
+	////		
+	//	//	if (distance - mean > 0.01f)
+	//	//		weight = 0.0f;
+	//    }
+	//
+	//	bufferIndexFromDirection(N, p, &bufferID, &uv);  
+	//	float3 probeIrradiance = irradianceProbes[bufferID].xyz;
+	//////	float3 probeIrradiance = read_imagef(probes, sampler, (float2)(texCoord) * (float2)(GI_PROBE_TEXTURE_WIDTH, GI_PROBE_TEXTURE_HEIGHT)).xyz;;
+	//////		
+    //////    //const float crushThreshold = 0.2;
+    //////    //if (weight < crushThreshold) {
+    //////    //    weight *= weight * weight * (1.0 / (crushThreshold * crushThreshold)); 
+    //////    //}
+	//////
+	//	// Trilinear weights
+	//	weight *= trilinear.x * trilinear.z * trilinear.z;
+	////
+	//////	//probeIrradiance = sqrt(probeIrradiance);
+	//////	
+	//////	float2 normalizedOctCoord = octEncode(normalize(irradianceDir));
+	//////	float2 normalizedOctCoordZeroOne = ((normalizedOctCoord + (float2)(1.0f, 1.0f)) * 0.5f);
+	////
+	////	if (GI_DEBUG_VALUE0 == i)// 
+	//	//if( weight > 0.001f)
+	//		if (weight > 0.001f)
+	//	{
+	//		result.xyz += trilinear * weight;// probeIrradiance * weight;// (trueDirectionToProbe + (float3)(1.0f)) / (float3)(2.0f);// * (float3)(0.2f, 0.2f, 0.2f);	
+	//		result.w   += weight;
+	//	}
+	//}
+	//
+	//if (result.w > 0.01f)
+	//{
+	//	result.xyz /= result.w;	
+	//}
+	//result.x = GI_DEBUG_RESULT / 100.0f;
+	//result.xyz = convert_float3(baseGrid) / (float3)(7.0f);
+	
 	if (voxel == 0)
 	{
 		// sky
@@ -230,7 +439,8 @@ __kernel void render( write_only image2d_t outimg, write_only image2d_t outimg1,
 		
 		pixel = (A.xyz * A.w);// + (pixel * (1.0f - A.w));
 		
-		write_imagef( outimg, (int2)(column, line), (float4)(pixel, 1) );
+		write_imagef( outimg, (int2)(column, line), (float4)(pixel.xyz, 1.0f) );
+		return;
 	}
 	else
 	{
@@ -289,7 +499,7 @@ __kernel void render( write_only image2d_t outimg, write_only image2d_t outimg1,
 	#endif
 	}
 	
-	write_imagef( outimg1, (int2)(column, line), (float4)(pixel, 1) );
+	write_imagef( outimg, (int2)(column, line), (float4)(pixel, 1) );
 }
 
 __kernel void commit( const int taskCount, __global uint* commit, __global uint* brick0, __global uint* brick1 )
@@ -311,6 +521,137 @@ __kernel void commit( const int taskCount, __global uint* commit, __global uint*
 			dstB[i] = srcB[i];
 		}
 	}
+}
+
+float2 TexCoordToProbeTexCoord(int2 fragCoord, int sideLength) {
+    int probeWithBorderSide = sideLength + 2;
+
+    float2 octFragCoord = (float2)((fragCoord.x) % probeWithBorderSide, (fragCoord.y) % probeWithBorderSide);
+    // Add back the half pixel to get pixel center normalized coordinates
+    return (octFragCoord + (float2)(0.5f, 0.5f)) * (2.0f / sideLength) - (float2)(1.0f, 1.0f);
+}
+
+int TexCoordToProbeID(int2 texelXY, int2 texDim, int sideLength) {
+    int probeWithBorderSide = sideLength + 2;
+    int probesPerSide = texDim.x / probeWithBorderSide;
+    return (texelXY.x / probeWithBorderSide) + probesPerSide * (texelXY.y / probeWithBorderSide);
+}
+
+__kernel void traceProbes(__global float4* irradianceOutput, __global float4* normalOutput, __global float2* depthOutput, __global const uint* blueNoise, __constant struct RenderParams* params,
+		__read_only image3d_t grid, __global unsigned char* brick, __global unsigned char* brickMaterial, write_only image2d_t debugOutput)
+{	
+	// Retreive variables
+	const int probeID 	= get_global_id(0);
+	const int rayID 	= get_global_id(1);
+	const int2 position = (int2)(probeID, rayID);
+	
+	if (probeID >= GI_PROBE_COUNT)  return;
+	if (rayID > 200) return;
+	
+	// Generate random direction
+	int seed = WangHash(probeID * 171 + rayID * 1773 + 42);//params->R0); // column * 171 + line * 1773 + params->R0
+	const float r0 = RandomFloat(&seed);
+	const float r1 = RandomFloat(&seed);
+	
+	const float theta = r0 * TWOPI;
+	const float phi   = r1 * TWOPI;
+	const float3 localDirection = normalize((float3)(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta)));
+	
+	const float3 pos = probeIndexToPosition(probeID);
+	//const float3 pos = (float3)(210, 110, 210);
+	
+	// Trace rays
+	float dist;
+	float3 N = (float3)(0.0f);
+	float4 A = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+	const uint voxel = TraceRay( (float4)(pos, 1), (float4)(localDirection, 1), &dist, &N, &A, grid, brick, brickMaterial, 999999 /* no cap needed */ );
+	
+	// Write output
+	irradianceOutput[probeID * GI_RAYS_PER_PROBE + rayID] = (float4)(A.xyz, 1.0f);
+	normalOutput[probeID * GI_RAYS_PER_PROBE + rayID] = (float4)(((localDirection + (float3)(1.0f)) / (float3)(2.0f)), 1.0f);
+	depthOutput[probeID * GI_RAYS_PER_PROBE + rayID] = (float2)(dist, dist * dist);
+	
+	float3 dist3 = (float3)(dist, dist / 10.0f, dist / 100.0f);
+	if (dist < 0.0f) 
+		dist3 = (float3)(1.0f, 0.0f, 1.0f);
+	
+	write_imagef( debugOutput, (int2)(probeID, rayID), (float4)(A.xyz, 1.0f) );
+	write_imagef( debugOutput, (int2)(probeID + GI_PROBE_COUNT, rayID), (float4)(dist3, 1.0f) );
+	write_imagef( debugOutput, (int2)(probeID + GI_PROBE_COUNT * 2, rayID), (float4)(localDirection , 1.0f) );
+}
+
+__kernel void updateProbes(__global float4* irradianceOutput, __global float2* depthOutput, __global float4* irradianceInput, __global float4* normalInput, 
+		__global float2* depthInput, write_only image2d_t debugOutput)
+{
+	const float energyConservation = 0.95f;
+	
+	const int x = get_global_id(0);
+	const int y = get_global_id(1);
+	const int2 position = (int2)(x, y);
+	
+	int probeID = TexCoordToProbeID((int2)(x, y), (int2)(GI_PROBE_TEXTURE_WIDTH, GI_PROBE_TEXTURE_HEIGHT), GI_PROBE_RESOLUTION);
+	if (probeID >= GI_PROBE_COUNT || probeID < 0)
+		return;
+	
+	if (x >= GI_PROBE_TEXTURE_WIDTH ) return;
+	if (y >= GI_PROBE_TEXTURE_HEIGHT) return;
+	
+	float2 localUV = TexCoordToProbeTexCoord(position, GI_PROBE_RESOLUTION);
+	float3 localDirection = octDecode(localUV);
+	
+	float4 irradianceResult = (float4)(0.0f);
+	float3 depthResult = (float3)(0.0f);
+	for (int i = 0; i < GI_RAYS_PER_PROBE; i++)
+	{
+		float3 normal = normalInput[(probeID * GI_RAYS_PER_PROBE) + i].xyz;
+		float3 direction = normal * (float3)(2.0f, 2.0f, 2.0f) - (float3)(1.0f, 1.0f, 1.0f);
+		
+		float weight 	  = max(0.0f, dot(localDirection, direction));
+		float depthWeight = weight;//pow(weight, 1.0f);
+		
+		float4 irradiance = irradianceInput[(probeID * GI_RAYS_PER_PROBE) + i];
+		if (length(irradiance.xyz) < 0.01f)
+			continue;
+		
+		if (weight > 0.01f && length(irradiance.xyz) > 0.01f)
+		{
+			float2 depth = depthInput[(probeID * GI_RAYS_PER_PROBE) + i];
+
+			irradianceResult += (float4)(irradiance.xyz * weight, weight);
+			depthResult += (float3)(depth.xy * depthWeight, depthWeight);	
+		}
+	}
+
+	if (irradianceResult.w > 0.01f)
+	{
+		irradianceResult.xyz /= irradianceResult.w;
+		irradianceResult.w = 1.0f;	
+	}	
+	
+	if (depthResult.z > 0.01f)
+	{
+		depthResult.xy /= depthResult.z;
+		depthResult.z = 1.0f;
+	}	
+
+	irradianceOutput[y * GI_PROBE_TEXTURE_WIDTH + x] = irradianceResult;
+	depthOutput[y * GI_PROBE_TEXTURE_WIDTH + x] = depthResult.xy;
+	
+	//float3 sample = sky[y * GI_PROBE_TEXTURE_WIDTH + x].xyz;
+	//sample = (float3)(max(sample.x, 0.0f), max(sample.y, 0.0f), max(sample.z, 0.0f));
+	//irradianceResult.xyz = (energyConservation * irradianceResult.xyz) + ((1.0f - energyConservation) * sample);
+	
+	//result.xyz = (localDirection + (float3)(1.0f, 1.0f, 1.0f)) / (float3)(2.0f, 2.0f, 2.0f);
+	//result.xyz = (result.xyz + (float3)(1.0f, 1.0f, 1.0f)) / (float3)(2.0f, 2.0f, 2.0f);
+	
+	//write_imagef(output, (int2)(x, y), (float4)(0.0f, 1.0f, 0.0, 1.0f) );
+	
+	//sky[y * GI_PROBE_TEXTURE_WIDTH + x].xyz = irradianceResult.xyz;
+	
+	//float3 pos = probeIndexToPosition(probeID) / (float3)(100.0f);
+	//write_imagef( irradianceOutput, (int2)(x, y), (float4)(depthResult.x / 10, depthResult.x / 50.0f, depthResult.x / 400.0f, 1.0f));
+	//write_imagef( debugOutput, (int2)(x, y), (float4)(irradianceResult.xyz, 1.0f));
+	write_imagef( debugOutput, (int2)(x, y), (float4)(depthResult.x, depthResult.x / 25.0f, depthResult.x / 50.0f, 1.0f) );
 }
 
 // Notes

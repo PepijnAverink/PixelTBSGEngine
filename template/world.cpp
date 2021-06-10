@@ -77,14 +77,27 @@ World::World( const uint targetID0)
 		desc.image_height = GI_RAYS_PER_PROBE;
 		desc.image_depth  = 1;
 
-		irradianceTraceTexture = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
-		normalTraceTexture     = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		//irradianceTraceTexture = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		//normalTraceTexture     = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		//
+		////fmt.image_channel_order = CL_RG;
+		////fmt.image_channel_data_type = CL_FLOAT;
+		//depthTraceTexture = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
 
+		fmt.image_channel_order = CL_RGBA;
+		fmt.image_channel_data_type = CL_UNORM_INT8;
 		desc.image_width  = GI_PROBE_TEXTURE_WIDTH;
 		desc.image_height = GI_PROBE_TEXTURE_HEIGHT;
+		irradianceProbeTexture = clCreateImage(Kernel::GetContext(), CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		depthProbeTexture = clCreateImage(Kernel::GetContext(), CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
 
+		irradianceProbeBuffer = new Buffer(GI_PROBE_TEXTURE_WIDTH * GI_PROBE_TEXTURE_HEIGHT * 4, Buffer::DEFAULT, nullptr);
+		depthProbeBuffer	  = new Buffer(GI_PROBE_TEXTURE_WIDTH * GI_PROBE_TEXTURE_HEIGHT * 2, Buffer::DEFAULT, nullptr);
 
-		probeTexture = clCreateImage(Kernel::GetContext(), CL_MEM_HOST_NO_ACCESS, &fmt, &desc, 0, 0);
+		irradianceTraceBuffer = new Buffer(GI_PROBE_COUNT * GI_RAYS_PER_PROBE * 4, Buffer::DEFAULT, nullptr);
+		normalTraceBuffer     = new Buffer(GI_PROBE_COUNT * GI_RAYS_PER_PROBE * 4, Buffer::DEFAULT, nullptr);
+		depthTraceBuffer      = new Buffer(GI_PROBE_COUNT * GI_RAYS_PER_PROBE * 2, Buffer::DEFAULT, nullptr);
+		//irradianceProbeBuffer->CopyToDevice();
 	}
 
 	brickInfo = new BrickInfo[BRICKCOUNT];
@@ -114,16 +127,18 @@ World::World( const uint targetID0)
 	committer = new Kernel( renderer->GetProgram(), "commit" );
 	kernel = new Kernel("cl/fxaakernel.cl", "copy");
 
-	//updateProbeKernel = new Kernel( renderer->GetProgram(), "updateProbes" );
-	//traceProbeKernel = new Kernel( renderer->GetProgram(), "traceProbes");
+	updateProbeKernel = new Kernel( renderer->GetProgram(), "updateProbes" );
+	traceProbeKernel = new Kernel( renderer->GetProgram(), "traceProbes");
 
-	renderer->SetArgument( 0, &diffuseOutput);
-	renderer->SetArgument( 1, &globalIlluminationOutput);
-	renderer->SetArgument( 2, paramBuffer );
-	renderer->SetArgument( 3, &gridMap );
-	renderer->SetArgument( 4, brickBuffer );
-	renderer->SetArgument( 5, brickMaterialBuffer);
-	renderer->SetArgument( 6, sky );
+	//testKernel = new Kernel( renderer->GetProgram(), "GaussianBlurDualPass");
+
+	renderer->SetArgument( 0, screen);
+	//renderer->SetArgument( 1, &globalIlluminationOutput);
+	renderer->SetArgument( 1, paramBuffer );
+	renderer->SetArgument( 2, &gridMap );
+	renderer->SetArgument( 3, brickBuffer );
+	renderer->SetArgument( 4, brickMaterialBuffer);
+	renderer->SetArgument( 5, sky );
 	committer->SetArgument( 1, &devmem );
 	committer->SetArgument( 2, brickBuffer );
 	committer->SetArgument( 3, brickMaterialBuffer);
@@ -142,17 +157,29 @@ World::World( const uint targetID0)
 	blueNoise = new Buffer( 65536 * 5, Buffer::READONLY, data32 );
 	blueNoise->CopyToDevice();
 	delete data32;
-	renderer->SetArgument( 7, blueNoise );
-	//renderer->SetArgument( 8, &probeTexture);
+	renderer->SetArgument( 6, blueNoise );
+	renderer->SetArgument( 7, irradianceProbeBuffer);
+	renderer->SetArgument( 8, depthProbeBuffer);
 
-	//updateProbeKernel->SetArgument(0, screen);
-	//updateProbeKernel->SetArgument(0, &probeTexture);
-	//updateProbeKernel->SetArgument(1, &irradianceTraceTexture);
+	traceProbeKernel->SetArgument(0, irradianceTraceBuffer);
+	traceProbeKernel->SetArgument(1, normalTraceBuffer);
+	traceProbeKernel->SetArgument(2, depthTraceBuffer);
+	traceProbeKernel->SetArgument(3, blueNoise);
+	traceProbeKernel->SetArgument(4, paramBuffer);
+	traceProbeKernel->SetArgument(5, &gridMap);
+	traceProbeKernel->SetArgument(6, brickBuffer);
+	traceProbeKernel->SetArgument(7, brickMaterialBuffer);
+	traceProbeKernel->SetArgument(8, screen);
 
-	//traceProbeKernel->SetArgument(0, &irradianceTraceTexture);
-	//traceProbeKernel->SetArgument(1, &normalTraceTexture);
-	//traceProbeKernel->SetArgument(2, blueNoise);
-	//traceProbeKernel->SetArgument(3, paramBuffer);
+	updateProbeKernel->SetArgument(0, irradianceProbeBuffer);
+	updateProbeKernel->SetArgument(1, depthProbeBuffer);
+	updateProbeKernel->SetArgument(2, irradianceTraceBuffer);
+	updateProbeKernel->SetArgument(3, normalTraceBuffer);
+	updateProbeKernel->SetArgument(4, depthTraceBuffer);
+	updateProbeKernel->SetArgument(5, screen);
+
+	//testKernel->SetArgument( 0, screen);
+	//testKernel->SetArgument( 1, &irradianceProbeTexture);
 
 #endif
 	targetTextureID = targetID0;
@@ -701,6 +728,23 @@ void World::DrawSprite( const uint idx )
 	sprite[idx]->lastRotation = sprite[idx]->rotation;
 }
 
+void Tmpl8::World::RemoveParticle(ParticleSystem* _system)
+{
+	for (uint32_t i = 0; i < _system->Particle.size(); i++)
+	{
+		Set(_system->Particle[i]->lastPos.x, _system->Particle[i]->lastPos.y, _system->Particle[i]->lastPos.z, 0, 7);
+	}
+}
+
+void Tmpl8::World::DrawParticles(ParticleSystem* _system)
+{
+	for (uint32_t i = 0; i < _system->Particle.size(); i++)
+	{
+		Set(_system->Particle[i]->currPos.x, _system->Particle[i]->currPos.y, _system->Particle[i]->currPos.z, _system->Particle[i]->color, 7);
+		_system->Particle[i]->lastPos = _system->Particle[i]->currPos;
+	}
+}
+
 // World::MoveSpriteTo
 // ----------------------------------------------------------------------------
 void World::MoveSpriteTo( const uint idx, const uint x, const uint y, const uint z )
@@ -1213,11 +1257,14 @@ void World::Render()
 	paramBuffer->CopyToDevice( false );
 
 	//traceProbeKernel->Run2D(make_int2(GI_PROBE_COUNT, GI_RAYS_PER_PROBE), make_int2(32, 4), 0, 0);
+	//traceProbeKernel->Run(screen, make_int2(32, 4));
 	//updateProbeKernel->Run2D(make_int2(GI_PROBE_TEXTURE_WIDTH, GI_PROBE_TEXTURE_HEIGHT), make_int2(32, 4), 0, 0);
 	//updateProbeKernel->Run(screen, make_int2(32, 4));
 
-	renderer->Run(0, &renderDone );
-	kernel->Run(screen, make_int2(32, 4));
+	renderer->Run(screen, make_int2(32, 4));
+	//kernel->Run(screen, make_int2(32, 4));
+
+	//testKernel->Run(screen, make_int2(32, 4));
 #else
 	// CPU-only path
 	static Surface* target = 0;
@@ -1309,6 +1356,7 @@ void World::Commit()
 {
 	// add the sprites the world
 	for (uint s = (uint)sprite.size(), i = 0; i < s; i++) DrawSprite( i );
+	for (uint i = 0; i < system.size(); i++) DrawParticles(system[i]);
 	// make sure the previous commit completed
 	if (commitInFlight) clWaitForEvents( 1, &commitDone );
 	// replace the initial commit buffer by a double-sized buffer in pinned memory
@@ -1362,6 +1410,9 @@ void World::Commit()
 		firstFrame = false;		// next frame is not the first frame
 	}
 	// bricks and top-level grid have been moved to the final host-side commit buffer; remove sprites
+	for (uint i = 0; i < system.size(); i++)
+		RemoveParticle(system[i]);
+
 	for (int s = sprite.size(), i = sprite.size() - 1; i >= 0; i--)
 		RemoveSprite(i);
 }

@@ -67,7 +67,7 @@ public:
 class ParticleSystem
 {
 public:
-	~ParticleSystem() 
+	virtual ~ParticleSystem() 
 	{
 		for (uint i = 0; i < Particle.size(); i++)
 			delete Particle[i];
@@ -176,6 +176,9 @@ private:
 	// internal methods
 	void RemoveSprite( const uint idx );
 	void DrawSprite( const uint idx );
+	void RemoveParticle(ParticleSystem* _system);
+	void DrawParticles(ParticleSystem* _system);
+
 	void DrawTileVoxels( const uint cellIdx, const uchar* voxels, const uint zeroes );
 public:
 	// low-level voxel access
@@ -342,12 +345,19 @@ private:
 	Buffer* brickBuffer;
 	Buffer* brickMaterialBuffer;
 
-	cl_mem  irradianceTraceTexture;
-	cl_mem  normalTraceTexture;
-	//Kernel* traceProbeKernel;
+	Buffer* irradianceTraceBuffer;
+	Buffer* normalTraceBuffer;
+	Buffer* depthTraceBuffer;
+	Kernel* traceProbeKernel;
 
-	cl_mem  probeTexture;
-	//Kernel* updateProbeKernel;
+	cl_mem  irradianceProbeTexture;
+	Buffer* irradianceProbeBuffer;
+	Buffer* depthProbeBuffer;
+
+	cl_mem  depthProbeTexture;
+	Kernel* updateProbeKernel;
+
+	Kernel* testKernel;
 
 	uchar* bricks[2];					// pointer to host-side copy of the bricks
 //	uchar* brickMaterial = 0;
