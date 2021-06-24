@@ -60,6 +60,7 @@ public:
 	int3 lastPos = make_int3(-9999);
 	int3 currPos = make_int3(-9999);
 
+	//red is (0 - 7) << 5, green is (0 - 7) << 2, blue (0 - 3)
 	uchar color = 0;
 	uchar alpha = 7;
 	bool active = true;
@@ -74,7 +75,7 @@ public:
 			delete Particle[i];
 	}
 
-	virtual void Update() = 0;
+	virtual void Update(float dt) = 0;
 
 	int3 currPos = make_int3(-9999);
 
@@ -154,7 +155,7 @@ public:
 	void DestroySprite(const uint idx);
 	bool IsSpriteDisabled(const uint idx);
 	void SpawnParticleSystem(ParticleSystem* system);
-	void UpdateParticleSystems();
+	void UpdateParticleSystems(float dt);
 	uint RayCast(const float3 origin, const float3 direction);
 	uint LoadTile( const char* voxFile );
 	uint LoadBigTile( const char* voxFile );

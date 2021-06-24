@@ -20,6 +20,8 @@
     <ClCompile Include="scripts\Gameplay\Pathfinder.cpp" />
     <ClCompile Include="scripts\Gameplay\particles\test_particle.cpp" />
     <ClCompile Include="scripts\Gameplay\particles\test_particle_system.cpp" />
+    <ClCompile Include="scripts\Gameplay\particles\ExplotionParticle.cpp" />
+    <ClCompile Include="scripts\Gameplay\particles\ExplotionParticleSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="template\bluenoise.h">
@@ -53,6 +55,8 @@
     <ClInclude Include="scripts\Gameplay\Pathfinder.h" />
     <ClInclude Include="scripts\Gameplay\particles\test_particle.h" />
     <ClInclude Include="scripts\Gameplay\particles\test_particle_system.h" />
+    <ClInclude Include="scripts\Gameplay\particles\ExplotionParticle.h" />
+    <ClInclude Include="scripts\Gameplay\particles\ExplotionParticleSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cl\kernels.cl">

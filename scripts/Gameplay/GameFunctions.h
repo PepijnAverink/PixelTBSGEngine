@@ -1,12 +1,50 @@
 #pragma once
 #include "flecs.h"
 #include "GameData.h"
+#include "particles\ExplotionParticleSystem.h"
 
 namespace Tmpl8
 {
 
 namespace GameplayFunctions
 {
+	void SpawnExplotionParticle(int3 location)
+	{
+		World* world = GetWorld();
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.4f, 10, (3 << 5) + (3 << 2) + 1, 60.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.4f, 10, (4 << 5) + (4 << 2) + 1, 65.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.4f, 10, (4 << 5) + (4 << 2) + 2, 55.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.3f, 100, (6 << 5) + (6 << 2) + 1, 55.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.3f, 100, (7 << 5) + (4 << 2) + 0, 65.0f));
+	}
+
+	void SpawnExplotionParticleArtillery(int3 location)
+	{
+		World* world = GetWorld();
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 100, (3 << 5) + (3 << 2) + 1, 70.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 100, (4 << 5) + (4 << 2) + 1, 75.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 100, (4 << 5) + (4 << 2) + 2, 65.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.3f, 1000, (6 << 5) + (6 << 2) + 1, 65.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.3f, 1000, (7 << 5) + (4 << 2) + 0, 75.0f));
+	}
+
+	void SpawnDeathParticleTanks(int3 location)
+	{
+		World* world = GetWorld();
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 50, (1 << 5) + (1 << 2) + 1, 75.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 50, (1<< 5) + (3 << 2) + 1, 65.0f));
+		
+	}
+
+	void SpawnDeathParticleBuilding(int3 location)
+	{
+		World* world = GetWorld();
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 50, (1 << 5) + (1 << 2) + 1, 75.0f));
+		world->SpawnParticleSystem(new ExplotionParticleSystem(location, 0.5f, 50, (2 << 5) + (2 << 2) + 1, 65.0f));
+
+	}
+
+
 	void RotateEntity(const flecs::entity& entity, Rotation& rotation)
 	{
 		if (!rotation.reachedTarget)
@@ -107,6 +145,18 @@ void MoveCurveEntity(const flecs::entity& entity, MoveLocation& moveData) {
 	}
 }
 
+int CheckIsBuilding(uint id)
+{
+	for (int i = 0; i < buildings.size(); ++i)
+	{
+		if (id == buildings[i].entity.id())
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
 void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 {
 	if (moveAttack.target != 0)
@@ -115,7 +165,16 @@ void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 		{
 			World* world = GetWorld();
 			const MoveLocation* moveLocation = entity.get<MoveLocation>();
-			float3 target = make_float3(world->sprite[moveAttack.target]->currPos);
+			int buildingID = CheckIsBuilding(moveAttack.target);
+			float3 target;
+			if (buildingID >= 0)
+			{
+				target = buildings[buildingID].pos;
+			}
+			else
+			{
+				target = make_float3(world->sprite[moveAttack.target]->currPos);
+			}
 			float dist = abs(length(target - moveLocation->currentPos));
 			if (dist > moveAttack.shootingRange)
 			{
@@ -133,10 +192,14 @@ void MoveAttackEntity(const flecs::entity& entity, MoveAttack& moveAttack)
 				return;
 			}
 			MovePathFinding* movePathFinding = entity.get_mut<MovePathFinding>();
-			int3 indexes = make_int3(round(moveLocation->currentPos.x / 16), 0, round(moveLocation->currentPos.z / 16));
-			float3 newTarget = make_float3(indexes.x * 16, target.y, indexes.z * 16);
-			moveAttack.target = 0;
-			movePathFinding->target = newTarget;
+			if (moveLocation->progress == 0)
+			{
+				movePathFinding->target = moveLocation->startPos;
+			}
+			else
+			{
+				movePathFinding->target = moveLocation->targetPos;
+			}
 			entity.modified<MovePathFinding>();
 		}
 	}
@@ -165,7 +228,7 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 		pathfinder.RemoveUnitInUnitField(indexCurrentPos);
 		vector<int> flowField = pathfinder.GetFlowFlield(GetIndexes(movePathFinding.target));
 		int targetIndex = flowField[indexCurrentPos];
-		pathfinder.SetUnitInUnitFieldWithAmount(indexCurrentPos, 4);
+		pathfinder.SetUnitInUnitFieldWithAmount(indexCurrentPos, 2);
 
 		if (targetIndex > 0)
 		{
@@ -174,7 +237,7 @@ void MoveUnitOverPath(const flecs::entity& entity, MovePathFinding& movePathFind
 			if (pathfinder.unitField[targetIndex] == 0)
 			{
 				//pathfinder.RemoveUnitInUnitField(GridPosToIndex(GetIndexes(moveLocation->currentPos), mapSize.x));
-				pathfinder.SetUnitInUnitFieldWithAmount(targetIndex, 4);
+				pathfinder.SetUnitInUnitFieldWithAmount(targetIndex, 2);
 				movePathFinding.oldPos = moveLocation->currentPos;
 				movePathFinding.setOldPosUnitCost = false;
 				moveLocation->startPos = moveLocation->currentPos;
@@ -286,13 +349,21 @@ void WeaponUpdate(const flecs::entity entity, WeaponData& weaponData)
 	}
 	
 
-	if (weaponData.target > world->sprite.size() || weaponData.target <= 0)
+	int buildingID = CheckIsBuilding(weaponData.target);
+	int3 enemyPos;
+	if (buildingID >= 0)
 	{
-		return;
+		enemyPos = make_int3(buildings[buildingID].pos);
 	}
-
-
-	int3 enemyPos = world->sprite[weaponData.target]->currPos;
+	else
+	{
+		if (weaponData.target > world->sprite.size() || weaponData.target <= 0)
+		{
+			return;
+		}
+		enemyPos = world->sprite[weaponData.target]->currPos;
+	}
+	enemyPos.y = currentPos.y;
 	float dist = abs(length(make_float3(currentPos - enemyPos)));
 
 	if (dist <= weaponData.fireRange)
@@ -369,16 +440,40 @@ void MoveTankBullet(const flecs::entity entity, TankBullet& tankBullet, ShotObje
 		MoveEntity(entity, shotObjectData.moveData);
 		if (shotObjectData.moveData.reachedTarget)
 		{
-			AddScore(target);
-			GetWorld()->DisableSprite(shotObjectData.targetID);		
-			RemoveUnitFromUnitField(target);
-			DisableChild(target);
-			target.add<Dead>();
-			target.disable();
-
+			if (target.has<Health>())
+			{
+				Health* targetHealth = target.get_mut<Health>();
+				targetHealth->health -= 1;
+				if (targetHealth->health == 0)
+				{
+					AddScore(target);
+					int buildingID = CheckIsBuilding(shotObjectData.targetID);
+					if (buildingID == -1)
+					{
+						SpawnDeathParticleTanks(GetWorld()->sprite[shotObjectData.targetID]->currPos);
+						GetWorld()->DisableSprite(shotObjectData.targetID);
+						RemoveUnitFromUnitField(target);
+						DisableChild(target);
+					}
+					else
+					{
+						World* world = GetWorld();
+						int3 particleSpawnPos = make_int3(shotObjectData.moveData.targetPos);
+						particleSpawnPos.y = 16;
+						SpawnDeathParticleBuilding(particleSpawnPos);
+						uint spriteID = world->LoadSprite("assets/DestroyTerrainModelBuilding.vox");
+						world->DestroyTerrain(spriteID, shotObjectData.moveData.targetPos.x, 16, shotObjectData.moveData.targetPos.z);
+					}
+					target.add<Dead>();
+					target.disable();
+				}
+			}
 			GetWorld()->DisableSprite(entity.id());
 			entity.add<Dead>();
 			entity.disable();
+			int3 particleSpawnPos = make_int3(shotObjectData.moveData.targetPos);
+			particleSpawnPos.y = 16;
+			SpawnExplotionParticle(particleSpawnPos);
 		}
 	}
 	else
@@ -389,6 +484,28 @@ void MoveTankBullet(const flecs::entity entity, TankBullet& tankBullet, ShotObje
 	}
 }
 
+void OnCheckBuildingHit(flecs::entity& currentEntity, float3 entityPos, float3 targetPos)
+{
+	entityPos.y = 0;
+	targetPos.y = 0;
+	float dist = abs(length(entityPos - targetPos));
+	if (dist <= 25 && currentEntity.has<Health>())
+	{
+		Health* targetHealth = currentEntity.get_mut<Health>();
+		targetHealth->health -= 1;
+		if (targetHealth->health == 0)
+		{
+			AddScore(currentEntity);
+			SpawnDeathParticleBuilding(make_int3(entityPos));
+			RemoveUnitFromUnitField(currentEntity);
+			currentEntity.add<Dead>();
+			currentEntity.disable();
+			uint spriteID = GetWorld()->LoadSprite("assets/DestroyTerrainModelBuilding.vox");
+			GetWorld()->DestroyTerrain(spriteID, entityPos.x, 16, entityPos.z);
+		}
+	}
+}
+
 void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryBullet, ShotObjectData& shotObjectData)
 {
 	MoveCurveEntity(entity, shotObjectData.moveData);
@@ -396,7 +513,7 @@ void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryB
 	{
 
 		World* world = GetWorld();
-		for (auto it : ecs.filter(filterPlayersAndBuildings))
+		for (auto it : ecs.filter(filterPlayers))
 		{
 			for (auto index : it)
 			{
@@ -406,26 +523,35 @@ void MoveArtilleryBullet(const flecs::entity entity, ArtilleryBullet& artilleryB
 				float3 targetPos = shotObjectData.moveData.targetPos;
 				targetPos.y = 0;
 				float dist = abs(length(entityPos - targetPos));
-				if (dist <= 32)
+				if (dist <= 32 && currentEntity.has<Health>())
 				{
-					AddScore(currentEntity);
-					RemoveUnitFromUnitField(currentEntity);
-					DisableChild(currentEntity);
-					world->DisableSprite(it.entity(index).id());
-					currentEntity.add<Dead>();
-					currentEntity.disable();
+					Health* targetHealth = currentEntity.get_mut<Health>();
+					targetHealth->health -= 1;
+					if (targetHealth->health == 0)
+					{
+						SpawnDeathParticleTanks(GetWorld()->sprite[currentEntity.id()]->currPos);
+						AddScore(currentEntity);
+						RemoveUnitFromUnitField(currentEntity);
+						DisableChild(currentEntity);
+						world->DisableSprite(currentEntity.id());
+						currentEntity.add<Dead>();
+						currentEntity.disable();
+					}					
 				}
 			}
 		}
+
+		for (BuildingData& buildingData : buildings)
+		{
+			OnCheckBuildingHit(buildingData.entity, buildingData.pos, shotObjectData.moveData.targetPos);
+		}
+
 		world->DisableSprite(entity.id());
 		entity.add<Dead>();
 		entity.disable();
-		//Spawn model for blocking terrain
-		//Check if there is already a gab there
-		//TODO: Change this so it gets the terrain and removes part of it
-		pathfinder.SetCostOnCostField(GridPosToIndex(GetIndexes(shotObjectData.moveData.targetPos), mapSize.x));
-		uint spriteID = world->LoadSprite("assets/tile00.vox");
-		world->DestroyTerrain(spriteID, shotObjectData.moveData.targetPos.x, 8, shotObjectData.moveData.targetPos.z);
+		int3 particleSpawnPos = make_int3(shotObjectData.moveData.targetPos);
+		particleSpawnPos.y = 16;
+		SpawnExplotionParticleArtillery(particleSpawnPos);
 	}
 }
 

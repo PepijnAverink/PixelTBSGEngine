@@ -123,6 +123,8 @@
   <ItemGroup>
     <ClCompile Include="scripts\Gameplay\Camera.cpp" />
     <ClCompile Include="scripts\Gameplay\mygame.cpp" />
+    <ClCompile Include="scripts\Gameplay\particles\ExplotionParticle.cpp" />
+    <ClCompile Include="scripts\Gameplay\particles\ExplotionParticleSystem.cpp" />
     <ClCompile Include="scripts\Gameplay\particles\test_particle.cpp" />
     <ClCompile Include="scripts\Gameplay\particles\test_particle_system.cpp" />
     <ClCompile Include="scripts\Gameplay\Pathfinder.cpp" />
@@ -150,6 +152,8 @@
     <ClInclude Include="scripts\Gameplay\GameData.h" />
     <ClInclude Include="scripts\Gameplay\GameFunctions.h" />
     <ClInclude Include="scripts\Gameplay\mygame.h" />
+    <ClInclude Include="scripts\Gameplay\particles\ExplotionParticle.h" />
+    <ClInclude Include="scripts\Gameplay\particles\ExplotionParticleSystem.h" />
     <ClInclude Include="scripts\Gameplay\particles\test_particle.h" />
     <ClInclude Include="scripts\Gameplay\particles\test_particle_system.h" />
     <ClInclude Include="scripts\Gameplay\Pathfinder.h" />

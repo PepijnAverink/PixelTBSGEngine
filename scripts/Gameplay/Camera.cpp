@@ -10,7 +10,7 @@ Camera::Camera()
     zoomSpeed = 10;
     targetPos = make_float3(0, 0, 0);
     cameraUp = make_float3(0, 1, 0);
-    zoomingMinMax = make_float2(30, 200);
+    zoomingMinMax = make_float2(30, 400);
 }
 
 void Camera::Movement(const float3 direction, const float deltaTime)

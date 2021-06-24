@@ -831,11 +831,11 @@ void Tmpl8::World::SpawnParticleSystem(ParticleSystem* s)
 	system.push_back(s);
 }
 
-void Tmpl8::World::UpdateParticleSystems()
+void Tmpl8::World::UpdateParticleSystems(float dt)
 {
 	for (uint i = 0; i < system.size(); i++)
 	{
-		system[i]->Update();
+		system[i]->Update(dt);
 
 		// Remove current system
 		if (system[i]->Active == false)

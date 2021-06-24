@@ -18,11 +18,14 @@ namespace Tmpl8
         inline void RemoveUnitInUnitField(const int pos) { if (pos > 0 && pos < unitField.size()) { unitField[pos] = 0; } };
         vector<int> GetFlowFlield(const int2 target);
         void VisualizeFlowField(float3 target);
+        void VisualizeCostField();
         void VisualizeUnitField();
         const vector <float3> GetTargetsForUnit(float3 target, int index);
         //Debug
         uint arrow;
         uint point;
+        uint moveingPoint;
+        uint nonPassableObject;
         //Move to private. is only public for testing
         vector<int> unitField;
         vector<int> CalculateIntegrationField(const int2 target);
@@ -39,6 +42,8 @@ namespace Tmpl8
         //Debug
         vector<uint> arrows;
         vector<uint> points;
+        vector<uint> moveingPoints;
+        vector<uint> nonPassableObjects;
         float timer;
         float maxTime = 2;
 

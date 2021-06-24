@@ -206,6 +206,7 @@ void Tmpl8::Pathfinder::VisualizeUnitField()
     if (points.empty())
     {
         points = vector<uint>(unitField.size());
+        moveingPoints = vector<uint>(unitField.size());
         for (int i = 0; i < mapSize.x; ++i)
         {
             for (int ii = 0; ii < mapSize.y; ++ii)
@@ -215,21 +216,69 @@ void Tmpl8::Pathfinder::VisualizeUnitField()
                 points[index] = GetWorld()->CloneSprite(point);
                 GetWorld()->SetSpritePivot(points[index], 8, 0, 8);
                 GetWorld()->MoveSpriteTo(points[index], spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+
+                moveingPoints[index] = GetWorld()->CloneSprite(moveingPoint);
+                GetWorld()->SetSpritePivot(moveingPoints[index], 8, 0, 8);
+                GetWorld()->MoveSpriteTo(moveingPoints[index], spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
             }
         }
     }
     for (int i = 0; i < unitField.size(); ++i)
     {
-        if (unitField[i] > 0)
+        if (unitField[i] == 100)
         {
             GetWorld()->EnableSprite(points[i]);
             int2 gridPos = IndexToGridPos(i, mapSize.x);
             uint3 spriteSpawnPos = make_uint3(gridPos.x * 16 + (10 * 16), 32, gridPos.y * 16 + (10 * 16));
             GetWorld()->MoveSpriteTo(points[i], spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+            GetWorld()->DisableSprite(moveingPoints[i]);
+        }
+        else if (unitField[i] > 0)
+        {
+            GetWorld()->EnableSprite(moveingPoints[i]);
+            int2 gridPos = IndexToGridPos(i, mapSize.x);
+            uint3 spriteSpawnPos = make_uint3(gridPos.x * 16 + (10 * 16), 32, gridPos.y * 16 + (10 * 16));
+            GetWorld()->MoveSpriteTo(moveingPoints[i], spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+            GetWorld()->DisableSprite(points[i]);
         }
         else
         {
             GetWorld()->DisableSprite(points[i]);
+            GetWorld()->DisableSprite(moveingPoints[i]);
+        }
+    }
+}
+
+void Tmpl8::Pathfinder::VisualizeCostField()
+{
+
+    if (nonPassableObjects.empty())
+    {
+        nonPassableObjects = vector<uint>(costField.size());
+        for (int i = 0; i < mapSize.x; ++i)
+        {
+            for (int ii = 0; ii < mapSize.y; ++ii)
+            {
+                int index = i * mapSize.y + ii;
+                uint3 spriteSpawnPos = make_uint3(i * 16 + (10 * 16), 32, ii * 16 + (10 * 16));
+                nonPassableObjects[index] = GetWorld()->CloneSprite(nonPassableObject);
+                GetWorld()->SetSpritePivot(nonPassableObjects[index], 8, 0, 8);
+                GetWorld()->MoveSpriteTo(nonPassableObjects[index], spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+            }
+        }
+    }
+    for (int i = 0; i < costField.size(); ++i)
+    {
+        if (costField[i] == 255)
+        {
+            GetWorld()->EnableSprite(nonPassableObjects[i]);
+            int2 gridPos = IndexToGridPos(i, mapSize.x);
+            uint3 spriteSpawnPos = make_uint3(gridPos.x * 16 + (10 * 16), 32, gridPos.y * 16 + (10 * 16));
+            GetWorld()->MoveSpriteTo(nonPassableObjects[i], spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+        }
+        else
+        {
+            GetWorld()->DisableSprite(nonPassableObjects[i]);
         }
     }
 }

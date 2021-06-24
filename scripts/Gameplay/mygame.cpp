@@ -3,6 +3,7 @@
 #include "GameFunctions.h"
 #include <iostream>
 #include "scripts\Imgui\imgui.h"
+#include "particles/ExplotionParticleSystem.h"
 
 Game* game = new MyGame();
 
@@ -51,16 +52,17 @@ void MyGame::Init()
 	mapSize = make_int2(tileLoader.grid.width, tileLoader.grid.height);
 	pathfinder.arrow = world->LoadSprite("assets/Arrow.vox");
 	pathfinder.point = world->LoadSprite("assets/Point.vox");
+	pathfinder.moveingPoint = world->LoadSprite("assets/MovingUnit.vox");
 	SpawnWorld();
 	
 
 
-	uint id = world->LoadSprite("assets/transparency/transparency_0x0.vox");
-	world->MoveSpriteTo(id, 200, 32, 190);
-	world->LoadTerainFromSprite(id, 180, 32, 180);
-	world->LoadTerainFromSprite(id, 190, 32, 180);
-	world->LoadTerainFromSprite(id, 200, 32, 180);
-	world->LoadTerainFromSprite(id, 210, 32, 180);
+	//uint id = world->LoadSprite("assets/transparency/transparency_0x0.vox");
+	//world->MoveSpriteTo(id, 200, 32, 190);
+	//world->LoadTerainFromSprite(id, 180, 32, 180);
+	//world->LoadTerainFromSprite(id, 190, 32, 180);
+	//world->LoadTerainFromSprite(id, 200, 32, 180);
+	//world->LoadTerainFromSprite(id, 210, 32, 180);
 
 	/*for (uint x = 0; x < 4; x++)
 	{
@@ -72,51 +74,51 @@ void MyGame::Init()
 		}
 	}*/
 
+
 	camera = Camera();
-	camera.SetPositionAndLookat(make_float3(500, 128, 500), make_float3(300, 1, 300));
+	camera.SetPositionAndLookat(make_float3(752, 128, 752), make_float3(600, 1, 600));
 
 	pathfinder.SetCostField(tileLoader.GetCostField());
 	pathfinder.SetMapSize(make_int2(tileLoader.grid.width, tileLoader.grid.height));
 	//VisualizeFlowField(make_float3(390, 16, 210));
 
-	float3 startPos = make_float3(752, 16, 752);
-	for (int i = 0; i < 3; ++i)
+	float3 startPos = make_float3(640, 16, 720);
+	for (int i = 0; i < 1; ++i)
 	{
-		for (int ii = 0; ii < 3; ++ii)
-		{
-			float3 spawnPos = startPos - make_float3(i * 16, 0, ii * 16);
-			SpawnArtilleryTank(1, spawnPos);
-			pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(spawnPos), mapSize.x));
-		}
+		int indexX = i * 16;
+		SpawnFastTank(1, startPos + make_float3(indexX, 0, 0));
+		SpawnNormalTank(1, startPos + make_float3(indexX, 0, 16));
+		SpawnArtilleryTank(1, startPos + make_float3(indexX, 0, 32));
 	}
 
-	SpawnPatrollingAtrilleryTank(2, { make_float3(208,16,352),make_float3(352,16,352) });
-	SpawnPatrollingAtrilleryTank(2, { make_float3(352,16,352), make_float3(208,16,352) });
-	SpawnPatrollingAtrilleryTank(2, { make_float3(352,16,208),make_float3(352,16,352) });
-	SpawnPatrollingAtrilleryTank(2, { make_float3(352,16,352), make_float3(352,16,208) });
-	SpawnPatrollingTank(2, { make_float3(400,16,208), make_float3(640,16,512) });
-	SpawnPatrollingTank(2, { make_float3(416,16,208), make_float3(656,16,512) });
-
-	SpawnPatrollingTank(2, { make_float3(208,16,416), make_float3(384,16,416) });
-	SpawnPatrollingTank(2, { make_float3(208,16,432), make_float3(384,16,432) });
-
-
-	SpawnTank(2, { make_float3(352,16,784) });
-	SpawnTank(2, { make_float3(352,16,544) });
-	SpawnTank(2, { make_float3(208,16,784) });
-	SpawnTank(2, { make_float3(208,16,544) });
-	SpawnTank(2, { make_float3(496,16,784) });
-	SpawnTank(2, { make_float3(496,16,544) });
-	SpawnTank(2, { make_float3(672,16,320) });
-	SpawnTank(2, { make_float3(624,16,336) });
-	SpawnTank(2, { make_float3(576,16,320) });
-
-
-	SpawnTank(2, { make_float3(480,16,480) });
-	SpawnTank(2, { make_float3(448,16,480) });
-	SpawnTank(2, { make_float3(480,16,448) });
-
-
+	//SpawnPatrollingTank(2, { make_float3(208,16,352),make_float3(352,16,352) });
+	//SpawnPatrollingTank(2, { make_float3(352,16,352), make_float3(208,16,352) });
+	//SpawnPatrollingTank(2, { make_float3(352,16,208),make_float3(352,16,352) });
+	//SpawnPatrollingTank(2, { make_float3(352,16,352), make_float3(352,16,208) });
+	//
+	//SpawnPatrollingTank(2, { make_float3(400,16,208), make_float3(640,16,512) });
+	//SpawnPatrollingAtrilleryTank(2, { make_float3(416,16,208), make_float3(656,16,512) });
+	//
+	//SpawnPatrollingAtrilleryTank(2, { make_float3(208,16,416), make_float3(384,16,416) });
+	//SpawnPatrollingAtrilleryTank(2, { make_float3(208,16,432), make_float3(384,16,432) });
+	//
+	//
+	//SpawnNormalTank(2, { make_float3(352,16,784) });
+	//SpawnNormalTank(2, { make_float3(352,16,544) });
+	//SpawnNormalTank(2, { make_float3(208,16,784) });
+	//SpawnNormalTank(2, { make_float3(208,16,544) });
+	//SpawnNormalTank(2, { make_float3(496,16,784) });
+	//SpawnNormalTank(2, { make_float3(496,16,544) });
+	//SpawnNormalTank(2, { make_float3(672,16,320) });
+	//SpawnNormalTank(2, { make_float3(624,16,336) });
+	//SpawnNormalTank(2, { make_float3(576,16,320) });
+	//
+	//
+	//SpawnNormalTank(2, { make_float3(480,16,480) });
+	//SpawnNormalTank(2, { make_float3(448,16,480) });
+	//SpawnNormalTank(2, { make_float3(480,16,448) });
+	//
+	//
 	//SpawnArtilleryTank(2, { 390,16,226 });
 	//SpawnArtilleryTank(2, { 210,16,390 });
 	//SpawnArtilleryTank(2, { 210,16,210 });
@@ -136,6 +138,7 @@ void Tmpl8::MyGame::AddComponentsToFlecsWorld()
 	ecs.component<TankBullet>();
 	ecs.component<ArtilleryBullet>();
 	ecs.component<Building>();
+	ecs.component<Health>();
 	ecs.system<Rotation>("RotateEntity").kind(flecs::OnUpdate).each(GameplayFunctions::RotateEntity);
 	ecs.system<MoveLocation>("OnAddMoveLocation").kind(flecs::OnAdd).each(GameplayFunctions::OnAddMoveLocation);
 	ecs.system<MoveLocation>("MoveEntity").kind(flecs::OnUpdate).each(GameplayFunctions::MoveEntity);
@@ -176,14 +179,17 @@ void Tmpl8::MyGame::SpawnTile(TileData tileData, int3 indexes)
 			uint3 spriteSpawnPos = make_uint3(indexes.x * 16 + (10 * 16), ((indexes.y + 1) *16) + height, indexes.z * 16 + (10 * 16));		
 			world->LoadTerainFromBigTile(tileLoader.GetID("Grass"), spawnPos.x, spawnPos.y, spawnPos.z);
 
-			uint spriteID = world->CloneSprite(tileData.tile);
-			flecs::entity building =  ecs.entity(spriteID);
+			world->LoadTerainFromSprite(tileData.tile, spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
+			flecs::entity building =  ecs.entity();
 			building.add<Building>()
-					.add<Player2>();
-			world->MoveSpriteTo(spriteID, spriteSpawnPos.x, spriteSpawnPos.y, spriteSpawnPos.z);
-			world->SetSpritePivot(spriteID, 8, 0, 8);
-			world->RotateSprite(spriteID, 0, 1, 0, DegreesToRadians(tileData.rotation));
+			.add<Health>()
+			.set<Health>({4,4})
+			.add<Player2>();
 
+			BuildingData buildingData;
+			buildingData.entity = building;
+			buildingData.pos = make_float3(spriteSpawnPos);
+			buildings.push_back(buildingData);
 			if (tileData.tile == 20)
 			{
 				headquarters = building;
@@ -209,11 +215,18 @@ void MyGame::Tick(float deltaTime)
 		}
 	}
 
+	world->UpdateParticleSystems(deltaTime / 1000.0f);
+
 	ImGui::Text(("Score: " + to_string(score)).c_str());
 	if (!gameLose)
 	{
 		if (headquarters.has<Dead>() || gameWon)
 		{
+			if (gameWon == false)
+			{
+				score += 1000;
+			}
+
 			ImGui::Text(("You win the game you Score: " + to_string(score)).c_str());
 			ImGui::Text(("Your highScore: " + to_string(highScore)).c_str());
 			gameWon = true;
@@ -245,6 +258,7 @@ void MyGame::Tick(float deltaTime)
 	//Outline for selection
 	SetOutlineSelectedUnits();
 	//pathfinder.VisualizeUnitField();
+	//pathfinder.VisualizeCostField();
 
 	float3 direction = make_float3((keys[GLFW_KEY_UP] || keys[GLFW_KEY_W]) - (keys[GLFW_KEY_DOWN] || keys[GLFW_KEY_S]), 0, (keys[GLFW_KEY_LEFT] || keys[GLFW_KEY_A]) - (keys[GLFW_KEY_RIGHT] || keys[GLFW_KEY_D]));
 	//float3 direction = make_float3((mousePos.y < 20 ? 1 : 0) - (mousePos.y > 700 ? 1 : 0), 0, (mousePos.x < 20 ? 1 : 0) - (mousePos.x > 1260 ? 1 : 0));
@@ -268,21 +282,34 @@ void Tmpl8::MyGame::MouseUp(int button)
 			return;
 		}
 		
-		uint objectHit = HandleMouseRaycastingTopDown(endPos);
-		if (objectHit > 0 && objectHit < world->sprite.size())
+		
+		int buildingID = IsEnemyBuilding(endPos);
+
+		if (buildingID >= 0)
 		{
-			if (IsFriendlyUnit(objectHit))
+			SetSelectedTanksAttackTarget(buildings[buildingID].entity.id());
+			std::cout << "Works Building" << std::endl;
+			return;
+		}
+		else
+		{
+			uint objectHit = HandleMouseRaycastingTopDown(endPos);
+			if (objectHit > 0 && objectHit < world->sprite.size())
 			{
-				selectedUnits.clear();
-				selectedUnits.push_back(objectHit);
-				return;
+				if (IsFriendlyUnit(objectHit))
+				{
+					selectedUnits.clear();
+					selectedUnits.push_back(objectHit);
+					return;
+				}
+				else if (IsEnemyUnit(objectHit))
+				{
+					SetSelectedTanksAttackTarget(objectHit);
+					std::cout << "Works" << std::endl;
+					return;
+				}
 			}
-			else if (IsEnemyUnit(objectHit) || IsEnemyBuilding(objectHit))
-			{
-				SetSelectedTanksAttackTarget(objectHit);
-				std::cout << "Works" << std::endl;
-				return;
-			}
+
 		}
 		SetSelectedTanksMoveLocation(endPos);
 	}
@@ -374,27 +401,26 @@ uint Tmpl8::MyGame::HandleMouseRaycastingTopDown(float3 pos)
 float3 Tmpl8::MyGame::GetMousePosInWorld()
 {
 	float2 screenResolution = make_float2(1280, 720);
-	float fovX = PI / 5.0f;
+	float2 newMousePos = (mousePos / screenResolution) * 2 - 1;
+	newMousePos.x *= -1;
+	float3 newDir = PaniniProjection(newMousePos, PI / 5.0f, 0.15f);
 
-	float mx = (float)(((screenResolution.x - mousePos.x) - screenResolution.x * 0.5) * (1.0 / screenResolution.x) * fovX);
-	float my = (float)(((screenResolution.y - mousePos.y) - screenResolution.y * 0.5) * (1.0 / screenResolution.y) * fovX);
+	float3 camPos = camera.GetPos();
+	float aspectRatio = 1280 / 720;
+	float3 p0 = TransformPosition(make_float3(-aspectRatio, 1, 3), world->GetCameraMatrix());
+	float3 p1 = TransformPosition(make_float3(aspectRatio, 1, 3), world->GetCameraMatrix());
+	float3 p2 = TransformPosition(make_float3(-aspectRatio, -1, 3), world->GetCameraMatrix());
+
+	const float3 D = newDir.z * normalize((p1 + p2) * 0.5f - camPos) +
+		newDir.x * normalize(p1 - p0) +
+		newDir.y * normalize(p2 - p0);
 
 
-	float3 cameraForward = world->GetCameraViewDir();
-	float3 cameraRight = cross(cameraForward, camera.GetCameraUp());
-	float3 dx = cameraRight * mx;
-	float3 dy = camera.GetCameraUp() * my;
+	float numberOfSteps = (camPos.y - 16) / abs(D.y);
 
-	float3 dir = normalize(cameraForward + ((dx + dy) * 2.0));
+	float3 locationInWorld = camPos + (D * numberOfSteps);
 
-
-	float numberOfSteps = (camera.GetPos().y - 16) / abs(dir.y);
-
-	float3 locationInWorld = camera.GetPos() + (dir * numberOfSteps);
-
-	//std::cout << to_string(locationInWorld.x) + "/" + to_string(locationInWorld.y) + "/" + to_string(locationInWorld.z) << std::endl;
-
-	return locationInWorld;
+	return GetEntityPos(GetIndexes(locationInWorld),16);
 }
 
 void Tmpl8::MyGame::SetUnitMoveLocation(float3 target, flecs::entity& unit)
@@ -552,20 +578,18 @@ bool Tmpl8::MyGame::IsEnemyUnit(uint enemyID)
 	return false;
 }
 
-bool Tmpl8::MyGame::IsEnemyBuilding(uint enemyID)
+int Tmpl8::MyGame::IsEnemyBuilding(float3 raycastPos)
 {
-	for (auto& it : ecs.filter(filterPlayer2Building))
+	for (int i = 0; i < buildings.size(); ++i)
 	{
-		for (auto& index : it)
+		float dist = abs(length(buildings[i].pos - raycastPos));
+		if (dist <= 16)
 		{
-			if (it.entity(index).id() == enemyID)
-			{
-				return true;
-			}
+			return i;
 		}
 	}
 
-	return false;
+	return -1;
 }
 
 bool Tmpl8::MyGame::hasLost()
@@ -584,6 +608,27 @@ bool Tmpl8::MyGame::hasLost()
 	return true;
 }
 
+float3 Tmpl8::MyGame::PaniniProjection(float2 tc, const float fov, const float d)
+{
+	const float d2 = d * d;
+	{
+		const float fo = PI * 0.5f - fov * 0.5f;
+		const float f = cos(fo) / sin(fo) * 2.0f;
+		const float f2 = f * f;
+		const float b = (sqrt(max(0.f, (d + d2) * (d + d2) * (f2 + f2 * f2))) - (d * f + f)) / (d2 + d2 * f2 - 1);
+		tc *= b;
+	}
+	const float h = tc.x, v = tc.y, h2 = h * h;
+	const float k = h2 / ((d + 1) * (d + 1)), k2 = k * k;
+	const float discr = max(0.f, k2 * d2 - (k + 1) * (k * d2 - 1));
+	const float cosPhi = (-k * d + sqrt(discr)) / (k + 1.f);
+	const float S = (d + 1) / (d + cosPhi), tanTheta = v / S;
+	float sinPhi = sqrt(max(0.f, 1 - cosPhi * cosPhi));
+	if (tc.x < 0.0) sinPhi *= -1;
+	const float s = rsqrtf(1 + tanTheta * tanTheta);
+	return make_float3(sinPhi, tanTheta, cosPhi) * s;
+}
+
 flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, uint playerID /* = 0*/, float3 location /* = float3 (0,0,0) */)
 {
 	uint spriteID = world->CloneSprite(unit);
@@ -595,7 +640,7 @@ flecs::entity Tmpl8::MyGame::SpawnEntity(uint unit, uint playerID /* = 0*/, floa
 	return entity;
 }
 
-flecs::entity Tmpl8::MyGame::SpawnUnitWithChild(uint top, uint bottom, uint playerID, float3 location, float3 offset)
+flecs::entity Tmpl8::MyGame::SpawnUnitWithChild(uint top, uint bottom, float speed, uint playerID, float3 location, float3 offset)
 {
 	flecs::entity currentUnit = SpawnEntity(bottom, playerID, location);
 	flecs::entity childUnit = SpawnEntity(top, 0, location + offset);
@@ -608,9 +653,7 @@ flecs::entity Tmpl8::MyGame::SpawnUnitWithChild(uint top, uint bottom, uint play
 	//flecs::entity currentUnit = SpawnEntity(units.recon, playerID, location);
 	world->SetSpritePivot(currentUnit.id(), 8, 0, 6);
 	currentUnit.add<MoveLocation>()
-		.set<MoveLocation>({ 0.5f, location, location,location, true, 0 })
-		.add<MoveAttack>()
-		.set<MoveAttack>({ 0,90 })
+		.set<MoveLocation>({ speed, location, location,location, true, 0 })
 		.add< Rotation>()
 		.set<Rotation>({ 0,300,0,true })
 		.add<MovePathFinding>()
@@ -621,43 +664,67 @@ flecs::entity Tmpl8::MyGame::SpawnUnitWithChild(uint top, uint bottom, uint play
 	return currentUnit;
 }
 
+flecs::entity Tmpl8::MyGame::SpawnFastTank(uint playerID, float3 location)
+{
+	flecs::entity currentUnit = SpawnUnitWithChild(units.reconTop, units.reconBottom, 0.8f, playerID, location, make_float3(0, 9, 0));
+	currentUnit.add<MoveAttack>()
+		.set<MoveAttack>({ 0,48 })
+		.add<Health>()
+		.set<Health>({ 4, 4 });
+
+	ecs.entity(currentUnit.get<ChildData>()->childID)
+		.add<WeaponData>()
+		.set<WeaponData>({ 0, 48,units.bullet,0,1.5f,0, 1,BulletType::Bullet_Tank,playerID });
+	pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(location), mapSize.x));
+	return currentUnit;
+}
+
 flecs::entity Tmpl8::MyGame::SpawnUnit(uint unit, uint playerID, float3 location)
 {
 	flecs::entity currentUnit = SpawnEntity(unit, playerID, location);
 	world->SetSpritePivot(currentUnit.id(), 8, 0, 6);
 	currentUnit.add<MoveLocation>()
 		.set<MoveLocation>({ 0.5f, location, location,location, true, 0 })
-		.add<MoveAttack>()
-		.set<MoveAttack>({ 0,90 })
 		.add< Rotation>()
-		.set<Rotation>({ 0,300,0,true })
+		.set<Rotation>({ 0,600,0,true })
 		.add<MovePathFinding>()
 		.set<MovePathFinding>({ location ,location ,true,true });
 
 	return currentUnit;
 }
 
-flecs::entity Tmpl8::MyGame::SpawnTank(uint playerID, float3 location)
+flecs::entity Tmpl8::MyGame::SpawnNormalTank(uint playerID, float3 location)
 {
-	flecs::entity currentUnit = SpawnUnitWithChild(units.reconTop, units.reconBottom, playerID, location, make_float3(0, 9, 0));
+	flecs::entity currentUnit = SpawnUnitWithChild(units.tank, units.tankBottom2,0.6f, playerID, location, make_float3(0, 6, 0));
+	currentUnit.add<MoveAttack>()
+		.set<MoveAttack>({ 0,48 })
+		.add<Health>()
+		.set<Health>({ 6, 6 });
+
 	ecs.entity(currentUnit.get<ChildData>()->childID)
 	.add<WeaponData>()
-	.set<WeaponData>({ 0, 48,units.bullet,0,5,0, 1,BulletType::Bullet_Tank,playerID });
+	.set<WeaponData>({ 0, 48,units.bullet,0,1.5f,0, 1,BulletType::Bullet_Tank,playerID });
+	pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(location), mapSize.x));
 	return currentUnit;
 }
 
 flecs::entity Tmpl8::MyGame::SpawnArtilleryTank(uint playerID, float3 location)
 {
-	flecs::entity currentUnit = SpawnUnitWithChild(units.artilleryTop, units.artilleryBottom, playerID, location,make_float3(0, 6, 0));
+	flecs::entity currentUnit = SpawnUnitWithChild(units.artilleryTop, units.artilleryBottom, 0.4f, playerID, location,make_float3(0, 6, 0));
+	currentUnit.add<MoveAttack>()
+		.set<MoveAttack>({ 0,80 })
+		.add<Health>()
+		.set<Health>({2, 2});
 	ecs.entity(currentUnit.get<ChildData>()->childID)
 		.add<WeaponData>()
 		.set<WeaponData>({ 0, 80,units.bullet,0,5,0, 1,BulletType::Bullet_Artillery,playerID });
+	pathfinder.SetUnitInUnitField(GridPosToIndex(GetIndexes(location), mapSize.x));
 	return currentUnit;
 }
 
 flecs::entity Tmpl8::MyGame::SpawnPatrollingTank(uint playerID, float3 location, vector<float3> patrolPoints)
 {
-	flecs::entity currentUnit = SpawnTank(2, location);
+	flecs::entity currentUnit = SpawnNormalTank(2, location);
 	currentUnit.add<PatrollData>()
 		.set<PatrollData>({ patrolPoints , 0 });
 	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;
@@ -666,7 +733,7 @@ flecs::entity Tmpl8::MyGame::SpawnPatrollingTank(uint playerID, float3 location,
 
 flecs::entity Tmpl8::MyGame::SpawnPatrollingTank(uint playerID, vector<float3> patrolPoints)
 {
-	flecs::entity currentUnit = SpawnTank(2, patrolPoints[0]);
+	flecs::entity currentUnit = SpawnNormalTank(2, patrolPoints[0]);
 	currentUnit.add<PatrollData>()
 		.set<PatrollData>({ patrolPoints , 0 });
 	currentUnit.get_mut<MovePathFinding>()->reachedTarget = true;

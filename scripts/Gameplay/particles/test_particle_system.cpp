@@ -19,7 +19,7 @@ namespace Tmpl8
 		}
 	}
 
-	void TestParticleSystem::Update()
+	void TestParticleSystem::Update(float dt)
 	{
 		counter++;
 		for (uint32_t i = 0; i < Particle.size(); i++)

@@ -7,7 +7,7 @@ namespace Tmpl8
 	{
 	public:
 		TestParticleSystem(int3 _position);
-		virtual void Update() override;
+		virtual void Update(float dt) override;
 
 		int counter = 0;
 	};

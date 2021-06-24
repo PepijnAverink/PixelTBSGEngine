@@ -10,7 +10,14 @@ namespace Tmpl8
 
 	//Enums
 
-	enum BulletType { Bullet_Tank = 0, Bullet_Artillery };
+	struct BuildingData
+	{
+		flecs::entity entity;
+		float3 pos;
+	};
+	vector<BuildingData> buildings;
+
+	enum class BulletType { Bullet_Tank = 0, Bullet_Artillery };
 
 	struct Units
 	{
