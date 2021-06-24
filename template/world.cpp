@@ -97,7 +97,8 @@ World::World( const uint targetID0)
 		irradianceTraceBuffer = new Buffer(GI_PROBE_COUNT * GI_RAYS_PER_PROBE * 4, Buffer::DEFAULT, nullptr);
 		normalTraceBuffer     = new Buffer(GI_PROBE_COUNT * GI_RAYS_PER_PROBE * 4, Buffer::DEFAULT, nullptr);
 		depthTraceBuffer      = new Buffer(GI_PROBE_COUNT * GI_RAYS_PER_PROBE * 2, Buffer::DEFAULT, nullptr);
-		//irradianceProbeBuffer->CopyToDevice();
+
+		giPathTraceResultBuffer = new Buffer(SCRWIDTH * SCRHEIGHT * 4, Buffer::DEFAULT, nullptr);
 	}
 
 	brickInfo = new BrickInfo[BRICKCOUNT];
@@ -160,6 +161,7 @@ World::World( const uint targetID0)
 	renderer->SetArgument( 6, blueNoise );
 	renderer->SetArgument( 7, irradianceProbeBuffer);
 	renderer->SetArgument( 8, depthProbeBuffer);
+	renderer->SetArgument( 9, giPathTraceResultBuffer);
 
 	traceProbeKernel->SetArgument(0, irradianceTraceBuffer);
 	traceProbeKernel->SetArgument(1, normalTraceBuffer);

@@ -21,7 +21,7 @@
 #define MAXCOMMITS	4096// 8192	// maximum number of bricks that can be committed per frame
 
 // renderer performance setting: set to 0 for slower devices, up to 8 for fast GPUs
-#define GIRAYS		0
+#define GIRAYS		4
 
 // Panini projection, http://tksharpless.net/vedutismo/Pannini/panini.pdf via https://www.shadertoy.com/view/Wt3fzB
 #define PANINI		1
@@ -86,21 +86,25 @@ struct RenderParams
 #define GI_POSITION_Y 298
 #define GI_POSITION_Z 198
 
-#define GI_STEP_SIZE_X 6
-#define GI_STEP_SIZE_Y 6
-#define GI_STEP_SIZE_Z 6
+#define GI_STEP_SIZE_X 5
+#define GI_STEP_SIZE_Y 5
+#define GI_STEP_SIZE_Z 5
 
-#define GI_DIMENSION_X 4
-#define GI_DIMENSION_Y 4
-#define GI_DIMENSION_Z 4
+#define GI_DIMENSION_X 8
+#define GI_DIMENSION_Y 8
+#define GI_DIMENSION_Z 8
 #define GI_PROBE_COUNT (GI_DIMENSION_X * GI_DIMENSION_Y * GI_DIMENSION_Z)
 
-#define GI_PROBE_RESOLUTION 30
+#define GI_PROBE_RESOLUTION 62
 
 #define GI_PROBE_TEXTURE_WIDTH  ((GI_PROBE_RESOLUTION + 2) * GI_DIMENSION_X)
 #define GI_PROBE_TEXTURE_HEIGHT ((GI_PROBE_RESOLUTION + 2) * GI_DIMENSION_Y * GI_DIMENSION_Z)
 
-#define GI_RAYS_PER_PROBE 64
+#define GI_RAYS_PER_PROBE 256
 
 #define GI_NORMAL_BIAS		0.5f
 #define GI_DEPTH_SHARPNESS 50.0f
+
+#define GI_PROBES_ON				 0
+#define GI_PATH_TRACE_INDIRECT_ON	 0
+#define GI_PATH_TRACE_INDIRECT_DEPTH 1

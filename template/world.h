@@ -351,6 +351,8 @@ private:
 	Buffer* depthTraceBuffer;
 	Kernel* traceProbeKernel;
 
+	Buffer* giPathTraceResultBuffer;
+
 	cl_mem  irradianceProbeTexture;
 	Buffer* irradianceProbeBuffer;
 	Buffer* depthProbeBuffer;
